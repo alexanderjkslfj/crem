@@ -11,7 +11,7 @@ pub enum Op {
     Multiplication(Multiplication),
     Division(Division),
     Negation(Negation),
-    Number(Integer),
+    Number(Number),
 }
 
 impl Op {
@@ -40,13 +40,13 @@ impl Calc for Op {
 
 impl Default for Op {
     fn default() -> Self {
-        Op::Number(Integer::default())
+        Op::Number(Number::default())
     }
 }
 
 impl From<u32> for Op {
     fn from(value: u32) -> Self {
-        Op::Number(Integer { value })
+        Op::Number(Number { value })
     }
 }
 
@@ -458,44 +458,44 @@ impl Neg for Multiplication {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone, Copy)]
-pub struct Integer {
+pub struct Number {
     value: u32,
 }
 
-impl From<u32> for Integer {
+impl From<u32> for Number {
     fn from(value: u32) -> Self {
-        Integer { value }
+        Number { value }
     }
 }
 
-impl Calc for Integer {
+impl Calc for Number {
     fn calc(&self) -> f64 {
         f64::from(self.value)
     }
 }
 
-impl Add for Integer {
+impl Add for Number {
     type Output = Op;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Op::Number(Integer::from(self.value + rhs.value))
+        Op::Number(Number::from(self.value + rhs.value))
     }
 }
 
-impl Mul for Integer {
+impl Mul for Number {
     type Output = Op;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Op::Number(Integer::from(self.value * rhs.value))
+        Op::Number(Number::from(self.value * rhs.value))
     }
 }
 
-impl Div for Integer {
+impl Div for Number {
     type Output = Op;
 
     fn div(self, rhs: Self) -> Self::Output {
         if self.value % rhs.value == 0 {
-            Op::Number(Integer::from(self.value / rhs.value))
+            Op::Number(Number::from(self.value / rhs.value))
         } else {
             let gcd = greatest_common_divisor(self.value, rhs.value);
             if gcd == 1 {
@@ -513,7 +513,7 @@ impl Div for Integer {
     }
 }
 
-impl Sub for Integer {
+impl Sub for Number {
     type Output = Op;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -521,7 +521,7 @@ impl Sub for Integer {
     }
 }
 
-impl Neg for Integer {
+impl Neg for Number {
     type Output = Op;
 
     fn neg(self) -> Self::Output {
