@@ -70,9 +70,7 @@ impl Div for Op {
     fn div(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Op::Addition(divident), Op::Addition(divisor)) => divident / divisor,
-            (Op::Multiplication(divident), Op::Multiplication(divisor)) => {
-                divident / divisor
-            }
+            (Op::Multiplication(divident), Op::Multiplication(divisor)) => divident / divisor,
             (Op::Division(divident), Op::Division(divisor)) => divident / divisor,
             (Op::Number(divident), Op::Number(divisor)) => divident / divisor,
             (divident, divisor) => Op::Division(Division {
@@ -92,6 +90,10 @@ impl Mul for Op {
             (Op::Multiplication(first), Op::Multiplication(second)) => first * second,
             (Op::Division(first), Op::Division(second)) => first * second,
             (Op::Number(first), Op::Number(second)) => first * second,
+
+            (any, Op::Division(div)) => (any * (*div.divident)) / (*div.divisor),
+            (Op::Division(div), any) => (any * (*div.divident)) / (*div.divisor),
+
             (first, second) => Op::Multiplication(Multiplication {
                 multiplier: Box::new(first),
                 multiplicand: Box::new(second),
@@ -162,10 +164,7 @@ impl Add for Division {
 
     fn add(self, rhs: Self) -> Self::Output {
         if self.divisor == rhs.divisor {
-            Op::Division(Division {
-                divident: Box::new(*self.divident + *rhs.divident),
-                divisor: self.divisor,
-            })
+            (*self.divident + *rhs.divident) / *self.divisor
         } else {
             let s_divident = *self.divident;
             let r_divident = *rhs.divident;
@@ -216,10 +215,31 @@ impl Add for Multiplication {
     type Output = Op;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Op::Addition(Addition {
-            first_summand: Box::new(Op::Multiplication(self)),
-            second_summand: Box::new(Op::Multiplication(rhs)),
-        })
+        let s_multiplier = *self.multiplier;
+        let s_multiplicand = *self.multiplicand;
+        let r_multiplier = *rhs.multiplier;
+        let r_multiplicand = *rhs.multiplicand;
+
+        if s_multiplicand == r_multiplicand {
+            s_multiplicand * (s_multiplier + r_multiplier)
+        } else if s_multiplicand == r_multiplier {
+            s_multiplicand * (s_multiplier + r_multiplicand)
+        } else if s_multiplier == r_multiplicand {
+            s_multiplier * (s_multiplicand + r_multiplier)
+        } else if s_multiplier == r_multiplier {
+            s_multiplier * (s_multiplicand + r_multiplicand)
+        } else {
+            Op::Addition(Addition {
+                first_summand: Box::new(Op::Multiplication(Multiplication {
+                    multiplier: Box::new(s_multiplier),
+                    multiplicand: Box::new(s_multiplicand),
+                })),
+                second_summand: Box::new(Op::Multiplication(Multiplication {
+                    multiplier: Box::new(r_multiplier),
+                    multiplicand: Box::new(r_multiplicand),
+                })),
+            })
+        }
     }
 }
 
@@ -238,10 +258,20 @@ impl Div for Multiplication {
     type Output = Op;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Op::Division(Division {
-            divident: Box::new(Op::Multiplication(self)),
-            divisor: Box::new(Op::Multiplication(rhs)),
-        })
+        if self.multiplier == rhs.multiplier {
+            (*self.multiplicand) / (*rhs.multiplicand)
+        } else if self.multiplier == rhs.multiplicand {
+            (*self.multiplicand) / (*rhs.multiplier)
+        } else if self.multiplicand == rhs.multiplier {
+            (*self.multiplier) / (*rhs.multiplicand)
+        } else if self.multiplicand == rhs.multiplicand {
+            (*self.multiplier) / (*rhs.multiplier)
+        } else {
+            Op::Division(Division {
+                divident: Box::new(Op::Multiplication(self)),
+                divisor: Box::new(Op::Multiplication(rhs)),
+            })
+        }
     }
 }
 
