@@ -532,15 +532,13 @@ impl Neg for Number {
 }
 
 fn greatest_common_divisor(a: u32, b: u32) -> u32 {
-    println!("Test implementation. Not for real world use.");
+    // euclidean algorithm
 
-    let min = if a < b { a } else { b };
+    let (mut smaller, mut bigger) = if a < b { (a, b) } else { (b, a) };
 
-    for div in (2..=min).rev() {
-        if a % div == 0 && b % div == 0 {
-            return div;
-        }
+    while smaller != 0 {
+        (smaller, bigger) = (bigger % smaller, smaller);
     }
 
-    1
+    bigger
 }
