@@ -1,5 +1,4 @@
-use core::ops::{Add, Div, Mul};
-use std::ops::{Neg, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct Op {
