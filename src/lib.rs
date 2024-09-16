@@ -28,6 +28,52 @@ impl From<u32> for Op {
     }
 }
 
+impl From<u16> for Op {
+    fn from(value: u16) -> Self {
+        Op::from(u32::from(value))
+    }
+}
+
+impl From<u8> for Op {
+    fn from(value: u8) -> Self {
+        Op::from(u32::from(value))
+    }
+}
+
+impl From<i32> for Op {
+    fn from(value: i32) -> Self {
+        if value < 0 {
+            Op {
+                operation: -Operation::from(u32::try_from(value.abs()).unwrap()),
+            }
+        } else {
+            Op {
+                operation: Operation::from(u32::try_from(value).unwrap()),
+            }
+        }
+    }
+}
+
+impl From<i16> for Op {
+    fn from(value: i16) -> Self {
+        Op::from(i32::from(value))
+    }
+}
+
+impl From<i8> for Op {
+    fn from(value: i8) -> Self {
+        Op::from(i32::from(value))
+    }
+}
+
+impl Default for Op {
+    fn default() -> Self {
+        Op {
+            operation: Operation::default(),
+        }
+    }
+}
+
 impl Add for Op {
     type Output = Op;
 
