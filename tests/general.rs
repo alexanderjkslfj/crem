@@ -19,21 +19,8 @@ mod tests {
 
     #[test]
     fn test_division() {
-        assert_eq!(
-            Op::div(3, 5),
-            Op::Division(Division {
-                divident: Box::new(3.into()),
-                divisor: Box::new(5.into())
-            })
-        );
         assert_eq!(Op::div(3, 6), Op::div(1, 2));
-        assert_eq!(
-            Op::div(3, 6),
-            Op::Division(Division {
-                divident: Box::new(1.into()),
-                divisor: Box::new(2.into())
-            })
-        );
+        assert_eq!(Op::div(3, 6), Op::div(1, 2));
         assert_eq!(Op::div(3, 10).calc(), 0.3);
     }
 
@@ -46,9 +33,18 @@ mod tests {
 
     #[test]
     fn test_adding_multiplications() {
-        assert_eq!((Op::from(3) * Op::from(6)) + (Op::from(2) * Op::from(5)), Op::from(28));
-        assert_eq!((Op::from(5) * Op::div(1, 3)) + (Op::from(5) * Op::div(2, 3)), Op::from(5));
-        assert_eq!((Op::from(5) * Op::div(1, 6)) + (Op::from(5) * Op::div(2, 6)), Op::div(5, 2));
+        assert_eq!(
+            (Op::from(3) * Op::from(6)) + (Op::from(2) * Op::from(5)),
+            Op::from(28)
+        );
+        assert_eq!(
+            (Op::from(5) * Op::div(1, 3)) + (Op::from(5) * Op::div(2, 3)),
+            Op::from(5)
+        );
+        assert_eq!(
+            (Op::from(5) * Op::div(1, 6)) + (Op::from(5) * Op::div(2, 6)),
+            Op::div(5, 2)
+        );
     }
 
     #[test]

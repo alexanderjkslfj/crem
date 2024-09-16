@@ -1,129 +1,70 @@
 use core::ops::{Add, Div, Mul};
 use std::ops::{Neg, Sub};
 
-pub trait Calc {
-    fn calc(&self) -> f64;
-}
-
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
-pub enum Op {
-    Addition(Addition),
-    Multiplication(Multiplication),
-    Division(Division),
-    Negation(Negation),
-    Number(Number),
+pub struct Op {
+    operation: Operation,
 }
 
 impl Op {
-    pub fn add(first: u32, second: u32) -> Op {
-        Op::from(first + second)
+    pub fn calc(&self) -> f64 {
+        self.operation.calc()
     }
-    pub fn mul(multiplier: u32, multiplicant: u32) -> Op {
-        Op::from(multiplier * multiplicant)
+    pub fn add(first: u32, second: u32) -> Self {
+        Self::from(first + second)
     }
-    pub fn div(divident: u32, divisor: u32) -> Op {
-        Op::from(divident) / Op::from(divisor)
+    pub fn mul(multiplier: u32, multiplicant: u32) -> Self {
+        Self::from(multiplier * multiplicant)
     }
-}
-
-impl Calc for Op {
-    fn calc(&self) -> f64 {
-        match self {
-            Op::Addition(add) => add.calc(),
-            Op::Multiplication(mul) => mul.calc(),
-            Op::Division(div) => div.calc(),
-            Op::Negation(inv) => inv.calc(),
-            Op::Number(num) => num.calc(),
-        }
-    }
-}
-
-impl Default for Op {
-    fn default() -> Self {
-        Op::Number(Number::default())
+    pub fn div(divident: u32, divisor: u32) -> Self {
+        Self::from(divident) / Self::from(divisor)
     }
 }
 
 impl From<u32> for Op {
     fn from(value: u32) -> Self {
-        Op::Number(Number { value })
+        Op {
+            operation: Operation::from(value),
+        }
     }
 }
 
 impl Add for Op {
-    type Output = Self;
+    type Output = Op;
 
     fn add(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Op::Addition(first), Op::Addition(second)) => first + second,
-            (Op::Multiplication(first), Op::Multiplication(second)) => first + second,
-            (Op::Division(first), Op::Division(second)) => first + second,
-            (Op::Negation(first), Op::Negation(second)) => first + second,
-            (Op::Number(first), Op::Number(second)) => first + second,
-            (first, second) => Op::Addition(Addition {
-                first_summand: Box::new(first),
-                second_summand: Box::new(second),
-            }),
-        }
-    }
-}
-
-impl Div for Op {
-    type Output = Self;
-
-    fn div(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Op::Addition(divident), Op::Addition(divisor)) => divident / divisor,
-            (Op::Multiplication(divident), Op::Multiplication(divisor)) => divident / divisor,
-            (Op::Division(divident), Op::Division(divisor)) => divident / divisor,
-            (Op::Negation(divident), Op::Negation(divisor)) => divident / divisor,
-            (Op::Number(divident), Op::Number(divisor)) => divident / divisor,
-            (divident, divisor) => Op::Division(Division {
-                divident: Box::new(divident),
-                divisor: Box::new(divisor),
-            }),
-        }
-    }
-}
-
-impl Mul for Op {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Op::Addition(first), Op::Addition(second)) => first * second,
-            (Op::Multiplication(first), Op::Multiplication(second)) => first * second,
-            (Op::Division(first), Op::Division(second)) => first * second,
-            (Op::Negation(first), Op::Negation(second)) => first * second,
-            (Op::Number(first), Op::Number(second)) => first * second,
-
-            (any, Op::Division(div)) => (any * (*div.divident)) / (*div.divisor),
-            (Op::Division(div), any) => (any * (*div.divident)) / (*div.divisor),
-
-            (first, second) => Op::Multiplication(Multiplication {
-                multiplier: Box::new(first),
-                multiplicand: Box::new(second),
-            }),
+        Op {
+            operation: self.operation + rhs.operation,
         }
     }
 }
 
 impl Sub for Op {
-    type Output = Self;
+    type Output = Op;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Op::Addition(first), Op::Addition(second)) => first - second,
-            (Op::Multiplication(first), Op::Multiplication(second)) => first - second,
-            (Op::Division(first), Op::Division(second)) => first - second,
-            (Op::Negation(first), Op::Negation(second)) => first - second,
-            (Op::Number(first), Op::Number(second)) => first - second,
-            (first, second) => Op::Addition(Addition {
-                first_summand: Box::new(first),
-                second_summand: Box::new(Op::Negation(Negation {
-                    value: Box::new(second),
-                })),
-            }),
+        Op {
+            operation: self.operation - rhs.operation,
+        }
+    }
+}
+
+impl Mul for Op {
+    type Output = Op;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Op {
+            operation: self.operation * rhs.operation,
+        }
+    }
+}
+
+impl Div for Op {
+    type Output = Op;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Op {
+            operation: self.operation / rhs.operation,
         }
     }
 }
@@ -132,19 +73,146 @@ impl Neg for Op {
     type Output = Op;
 
     fn neg(self) -> Self::Output {
+        Op {
+            operation: -self.operation,
+        }
+    }
+}
+
+trait Calc {
+    fn calc(&self) -> f64;
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+enum Operation {
+    Addition(Addition),
+    Multiplication(Multiplication),
+    Division(Division),
+    Negation(Negation),
+    Number(Number),
+}
+
+impl Calc for Operation {
+    fn calc(&self) -> f64 {
         match self {
-            Op::Addition(add) => -add,
-            Op::Multiplication(mul) => -mul,
-            Op::Division(div) => -div,
-            Op::Negation(neg) => -neg,
-            Op::Number(num) => -num,
+            Operation::Addition(add) => add.calc(),
+            Operation::Multiplication(mul) => mul.calc(),
+            Operation::Division(div) => div.calc(),
+            Operation::Negation(inv) => inv.calc(),
+            Operation::Number(num) => num.calc(),
+        }
+    }
+}
+
+impl Default for Operation {
+    fn default() -> Self {
+        Operation::Number(Number::default())
+    }
+}
+
+impl From<u32> for Operation {
+    fn from(value: u32) -> Self {
+        Operation::Number(Number { value })
+    }
+}
+
+impl Add for Operation {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Operation::Addition(first), Operation::Addition(second)) => first + second,
+            (Operation::Multiplication(first), Operation::Multiplication(second)) => first + second,
+            (Operation::Division(first), Operation::Division(second)) => first + second,
+            (Operation::Negation(first), Operation::Negation(second)) => first + second,
+            (Operation::Number(first), Operation::Number(second)) => first + second,
+            (first, second) => Operation::Addition(Addition {
+                first_summand: Box::new(first),
+                second_summand: Box::new(second),
+            }),
+        }
+    }
+}
+
+impl Div for Operation {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Operation::Addition(divident), Operation::Addition(divisor)) => divident / divisor,
+            (Operation::Multiplication(divident), Operation::Multiplication(divisor)) => {
+                divident / divisor
+            }
+            (Operation::Division(divident), Operation::Division(divisor)) => divident / divisor,
+            (Operation::Negation(divident), Operation::Negation(divisor)) => divident / divisor,
+            (Operation::Number(divident), Operation::Number(divisor)) => divident / divisor,
+            (divident, divisor) => Operation::Division(Division {
+                divident: Box::new(divident),
+                divisor: Box::new(divisor),
+            }),
+        }
+    }
+}
+
+impl Mul for Operation {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Operation::Addition(first), Operation::Addition(second)) => first * second,
+            (Operation::Multiplication(first), Operation::Multiplication(second)) => first * second,
+            (Operation::Division(first), Operation::Division(second)) => first * second,
+            (Operation::Negation(first), Operation::Negation(second)) => first * second,
+            (Operation::Number(first), Operation::Number(second)) => first * second,
+
+            (any, Operation::Division(div)) => (any * (*div.divident)) / (*div.divisor),
+            (Operation::Division(div), any) => (any * (*div.divident)) / (*div.divisor),
+
+            (first, second) => Operation::Multiplication(Multiplication {
+                multiplier: Box::new(first),
+                multiplicand: Box::new(second),
+            }),
+        }
+    }
+}
+
+impl Sub for Operation {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Operation::Addition(first), Operation::Addition(second)) => first - second,
+            (Operation::Multiplication(first), Operation::Multiplication(second)) => first - second,
+            (Operation::Division(first), Operation::Division(second)) => first - second,
+            (Operation::Negation(first), Operation::Negation(second)) => first - second,
+            (Operation::Number(first), Operation::Number(second)) => first - second,
+            (first, second) => Operation::Addition(Addition {
+                first_summand: Box::new(first),
+                second_summand: Box::new(Operation::Negation(Negation {
+                    value: Box::new(second),
+                })),
+            }),
+        }
+    }
+}
+
+impl Neg for Operation {
+    type Output = Operation;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Operation::Addition(add) => -add,
+            Operation::Multiplication(mul) => -mul,
+            Operation::Division(div) => -div,
+            Operation::Negation(neg) => -neg,
+            Operation::Number(num) => -num,
         }
     }
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
-pub struct Negation {
-    pub value: Box<Op>,
+struct Negation {
+    pub value: Box<Operation>,
 }
 
 impl Calc for Negation {
@@ -154,17 +222,17 @@ impl Calc for Negation {
 }
 
 impl Add for Negation {
-    type Output = Op;
+    type Output = Operation;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Op::Negation(Negation {
+        Operation::Negation(Negation {
             value: Box::new((*self.value) + (*rhs.value)),
         })
     }
 }
 
 impl Div for Negation {
-    type Output = Op;
+    type Output = Operation;
 
     fn div(self, rhs: Self) -> Self::Output {
         (*self.value) / (*rhs.value)
@@ -172,7 +240,7 @@ impl Div for Negation {
 }
 
 impl Mul for Negation {
-    type Output = Op;
+    type Output = Operation;
 
     fn mul(self, rhs: Self) -> Self::Output {
         (*self.value) * (*rhs.value)
@@ -180,7 +248,7 @@ impl Mul for Negation {
 }
 
 impl Sub for Negation {
-    type Output = Op;
+    type Output = Operation;
 
     fn sub(self, rhs: Self) -> Self::Output {
         (*rhs.value) - (*self.value)
@@ -188,7 +256,7 @@ impl Sub for Negation {
 }
 
 impl Neg for Negation {
-    type Output = Op;
+    type Output = Operation;
 
     fn neg(self) -> Self::Output {
         *self.value
@@ -196,9 +264,9 @@ impl Neg for Negation {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
-pub struct Addition {
-    pub first_summand: Box<Op>,
-    pub second_summand: Box<Op>,
+struct Addition {
+    pub first_summand: Box<Operation>,
+    pub second_summand: Box<Operation>,
 }
 
 impl Calc for Addition {
@@ -208,51 +276,51 @@ impl Calc for Addition {
 }
 
 impl Add for Addition {
-    type Output = Op;
+    type Output = Operation;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Op::Addition(Addition {
-            first_summand: Box::new(Op::Addition(self)),
-            second_summand: Box::new(Op::Addition(rhs)),
+        Operation::Addition(Addition {
+            first_summand: Box::new(Operation::Addition(self)),
+            second_summand: Box::new(Operation::Addition(rhs)),
         })
     }
 }
 
 impl Mul for Addition {
-    type Output = Op;
+    type Output = Operation;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Op::Multiplication(Multiplication {
-            multiplier: Box::new(Op::Addition(self)),
-            multiplicand: Box::new(Op::Addition(rhs)),
+        Operation::Multiplication(Multiplication {
+            multiplier: Box::new(Operation::Addition(self)),
+            multiplicand: Box::new(Operation::Addition(rhs)),
         })
     }
 }
 
 impl Div for Addition {
-    type Output = Op;
+    type Output = Operation;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Op::Division(Division {
-            divident: Box::new(Op::Addition(self)),
-            divisor: Box::new(Op::Addition(rhs)),
+        Operation::Division(Division {
+            divident: Box::new(Operation::Addition(self)),
+            divisor: Box::new(Operation::Addition(rhs)),
         })
     }
 }
 
 impl Sub for Addition {
-    type Output = Op;
+    type Output = Operation;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Op::Addition(self) + (-rhs)
+        Operation::Addition(self) + (-rhs)
     }
 }
 
 impl Neg for Addition {
-    type Output = Op;
+    type Output = Operation;
 
     fn neg(self) -> Self::Output {
-        Op::Addition(Addition {
+        Operation::Addition(Addition {
             first_summand: Box::new(-(*self.first_summand)),
             second_summand: Box::new(-(*self.second_summand)),
         })
@@ -260,9 +328,9 @@ impl Neg for Addition {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
-pub struct Division {
-    pub divident: Box<Op>,
-    pub divisor: Box<Op>,
+struct Division {
+    pub divident: Box<Operation>,
+    pub divisor: Box<Operation>,
 }
 
 impl Calc for Division {
@@ -272,7 +340,7 @@ impl Calc for Division {
 }
 
 impl Add for Division {
-    type Output = Op;
+    type Output = Operation;
 
     fn add(self, rhs: Self) -> Self::Output {
         if self.divisor == rhs.divisor {
@@ -290,29 +358,29 @@ impl Add for Division {
 }
 
 impl Mul for Division {
-    type Output = Op;
+    type Output = Operation;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Op::Multiplication(Multiplication {
-            multiplier: Box::new(Op::Division(self)),
-            multiplicand: Box::new(Op::Division(rhs)),
+        Operation::Multiplication(Multiplication {
+            multiplier: Box::new(Operation::Division(self)),
+            multiplicand: Box::new(Operation::Division(rhs)),
         })
     }
 }
 
 impl Div for Division {
-    type Output = Op;
+    type Output = Operation;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Op::Division(Division {
-            divident: Box::new(Op::Division(self)),
-            divisor: Box::new(Op::Division(rhs)),
+        Operation::Division(Division {
+            divident: Box::new(Operation::Division(self)),
+            divisor: Box::new(Operation::Division(rhs)),
         })
     }
 }
 
 impl Sub for Division {
-    type Output = Op;
+    type Output = Operation;
 
     fn sub(self, rhs: Self) -> Self::Output {
         let s_divident = *self.divident;
@@ -330,19 +398,19 @@ impl Sub for Division {
 }
 
 impl Neg for Division {
-    type Output = Op;
+    type Output = Operation;
 
     fn neg(self) -> Self::Output {
-        Op::Negation(Negation {
-            value: Box::new(Op::Division(self)),
+        Operation::Negation(Negation {
+            value: Box::new(Operation::Division(self)),
         })
     }
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
-pub struct Multiplication {
-    multiplier: Box<Op>,
-    multiplicand: Box<Op>,
+struct Multiplication {
+    multiplier: Box<Operation>,
+    multiplicand: Box<Operation>,
 }
 
 impl Calc for Multiplication {
@@ -352,7 +420,7 @@ impl Calc for Multiplication {
 }
 
 impl Add for Multiplication {
-    type Output = Op;
+    type Output = Operation;
 
     fn add(self, rhs: Self) -> Self::Output {
         let s_multiplier = *self.multiplier;
@@ -369,12 +437,12 @@ impl Add for Multiplication {
         } else if s_multiplier == r_multiplier {
             s_multiplier * (s_multiplicand + r_multiplicand)
         } else {
-            Op::Addition(Addition {
-                first_summand: Box::new(Op::Multiplication(Multiplication {
+            Operation::Addition(Addition {
+                first_summand: Box::new(Operation::Multiplication(Multiplication {
                     multiplier: Box::new(s_multiplier),
                     multiplicand: Box::new(s_multiplicand),
                 })),
-                second_summand: Box::new(Op::Multiplication(Multiplication {
+                second_summand: Box::new(Operation::Multiplication(Multiplication {
                     multiplier: Box::new(r_multiplier),
                     multiplicand: Box::new(r_multiplicand),
                 })),
@@ -384,18 +452,18 @@ impl Add for Multiplication {
 }
 
 impl Mul for Multiplication {
-    type Output = Op;
+    type Output = Operation;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Op::Multiplication(Multiplication {
-            multiplier: Box::new(Op::Multiplication(self)),
-            multiplicand: Box::new(Op::Multiplication(rhs)),
+        Operation::Multiplication(Multiplication {
+            multiplier: Box::new(Operation::Multiplication(self)),
+            multiplicand: Box::new(Operation::Multiplication(rhs)),
         })
     }
 }
 
 impl Div for Multiplication {
-    type Output = Op;
+    type Output = Operation;
 
     fn div(self, rhs: Self) -> Self::Output {
         if self.multiplier == rhs.multiplier {
@@ -407,16 +475,16 @@ impl Div for Multiplication {
         } else if self.multiplicand == rhs.multiplicand {
             (*self.multiplier) / (*rhs.multiplier)
         } else {
-            Op::Division(Division {
-                divident: Box::new(Op::Multiplication(self)),
-                divisor: Box::new(Op::Multiplication(rhs)),
+            Operation::Division(Division {
+                divident: Box::new(Operation::Multiplication(self)),
+                divisor: Box::new(Operation::Multiplication(rhs)),
             })
         }
     }
 }
 
 impl Sub for Multiplication {
-    type Output = Op;
+    type Output = Operation;
 
     fn sub(self, rhs: Self) -> Self::Output {
         let s_multiplier = *self.multiplier;
@@ -433,12 +501,12 @@ impl Sub for Multiplication {
         } else if s_multiplier == r_multiplier {
             s_multiplier * (s_multiplicand - r_multiplicand)
         } else {
-            Op::Addition(Addition {
-                first_summand: Box::new(Op::Multiplication(Multiplication {
+            Operation::Addition(Addition {
+                first_summand: Box::new(Operation::Multiplication(Multiplication {
                     multiplier: Box::new(s_multiplier),
                     multiplicand: Box::new(s_multiplicand),
                 })),
-                second_summand: Box::new(-Op::Multiplication(Multiplication {
+                second_summand: Box::new(-Operation::Multiplication(Multiplication {
                     multiplier: Box::new(r_multiplier),
                     multiplicand: Box::new(r_multiplicand),
                 })),
@@ -448,17 +516,17 @@ impl Sub for Multiplication {
 }
 
 impl Neg for Multiplication {
-    type Output = Op;
+    type Output = Operation;
 
     fn neg(self) -> Self::Output {
-        Op::Negation(Negation {
-            value: Box::new(Op::Multiplication(self)),
+        Operation::Negation(Negation {
+            value: Box::new(Operation::Multiplication(self)),
         })
     }
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone, Copy)]
-pub struct Number {
+struct Number {
     value: u32,
 }
 
@@ -475,38 +543,38 @@ impl Calc for Number {
 }
 
 impl Add for Number {
-    type Output = Op;
+    type Output = Operation;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Op::Number(Number::from(self.value + rhs.value))
+        Operation::Number(Number::from(self.value + rhs.value))
     }
 }
 
 impl Mul for Number {
-    type Output = Op;
+    type Output = Operation;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Op::Number(Number::from(self.value * rhs.value))
+        Operation::Number(Number::from(self.value * rhs.value))
     }
 }
 
 impl Div for Number {
-    type Output = Op;
+    type Output = Operation;
 
     fn div(self, rhs: Self) -> Self::Output {
         if self.value % rhs.value == 0 {
-            Op::Number(Number::from(self.value / rhs.value))
+            Operation::Number(Number::from(self.value / rhs.value))
         } else {
             let gcd = greatest_common_divisor(self.value, rhs.value);
             if gcd == 1 {
-                Op::Division(Division {
-                    divident: Box::new(Op::Number(self)),
-                    divisor: Box::new(Op::Number(rhs)),
+                Operation::Division(Division {
+                    divident: Box::new(Operation::Number(self)),
+                    divisor: Box::new(Operation::Number(rhs)),
                 })
             } else {
-                Op::Division(Division {
-                    divident: Box::new(Op::from(self.value / gcd)),
-                    divisor: Box::new(Op::from(rhs.value / gcd)),
+                Operation::Division(Division {
+                    divident: Box::new(Operation::from(self.value / gcd)),
+                    divisor: Box::new(Operation::from(rhs.value / gcd)),
                 })
             }
         }
@@ -514,19 +582,19 @@ impl Div for Number {
 }
 
 impl Sub for Number {
-    type Output = Op;
+    type Output = Operation;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Op::from(self.value - rhs.value)
+        Operation::from(self.value - rhs.value)
     }
 }
 
 impl Neg for Number {
-    type Output = Op;
+    type Output = Operation;
 
     fn neg(self) -> Self::Output {
-        Op::Negation(Negation {
-            value: Box::new(Op::Number(self)),
+        Operation::Negation(Negation {
+            value: Box::new(Operation::Number(self)),
         })
     }
 }
