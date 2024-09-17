@@ -385,7 +385,10 @@ impl Sub for Addition {
     type Output = Operation;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Operation::Addition(self) + (-rhs)
+        Operation::Addition(Addition {
+            first_summand: Box::new(Operation::Addition(self)),
+            second_summand: Box::new(-rhs),
+        })
     }
 }
 
@@ -393,9 +396,8 @@ impl Neg for Addition {
     type Output = Operation;
 
     fn neg(self) -> Self::Output {
-        Operation::Addition(Addition {
-            first_summand: Box::new(-(*self.first_summand)),
-            second_summand: Box::new(-(*self.second_summand)),
+        Operation::Negation(Negation {
+            value: Box::new(Operation::Addition(self)),
         })
     }
 }
