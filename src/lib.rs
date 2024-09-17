@@ -172,6 +172,14 @@ impl Add for Operation {
             (Operation::Negation(first), Operation::Negation(second)) => first + second,
             (Operation::Number(first), Operation::Number(second)) => first + second,
 
+            // experimental
+            (Operation::Division(div), any) => {
+                (any * (*div.divisor).clone() + (*div.divident)) / (*div.divisor)
+            }
+            (any, Operation::Division(div)) => {
+                (any * (*div.divisor).clone() + (*div.divident)) / (*div.divisor)
+            }
+
             (Operation::Negation(neg), any) => any - (*neg.value),
             (any, Operation::Negation(neg)) => any - (*neg.value),
 
@@ -437,10 +445,7 @@ impl Div for Division {
     type Output = Operation;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Operation::Division(Division {
-            divident: Box::new(Operation::Division(self)),
-            divisor: Box::new(Operation::Division(rhs)),
-        })
+        Operation::Division(self) * ((*rhs.divisor) / (*rhs.divident))
     }
 }
 

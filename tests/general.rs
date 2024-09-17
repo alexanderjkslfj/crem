@@ -79,11 +79,18 @@ mod tests {
     }
 
     #[test]
+    fn test_add_div_num() {
+        assert_eq!(Op::div(1, 2) + 3.into(), Op::div(7, 2));
+        assert_eq!(Op::from(5) + Op::div(1, 2), Op::div(11, 2));
+    }
+
+    #[test]
     fn test_nested_divisions() {
         assert_eq!(Op::from(5) / (Op::from(1) / Op::from(2)), Op::from(10));
         assert_eq!(
             (Op::from(3) / Op::from(2)) / Op::from(2),
             Op::from(3) / Op::from(4)
         );
+        assert_eq!(Op::div(3, 2) / Op::div(1, 4), Op::from(6));
     }
 }
