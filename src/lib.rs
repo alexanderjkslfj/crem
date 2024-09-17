@@ -434,10 +434,7 @@ impl Mul for Division {
     type Output = Operation;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Operation::Multiplication(Multiplication {
-            multiplier: Box::new(Operation::Division(self)),
-            multiplicand: Box::new(Operation::Division(rhs)),
-        })
+        ((*self.divident) * (*rhs.divident)) / ((*self.divisor) * (*rhs.divisor))
     }
 }
 

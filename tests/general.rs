@@ -79,6 +79,12 @@ mod tests {
     }
 
     #[test]
+    fn test_multiplying_divisions() {
+        assert_eq!(Op::div(1, 2) * Op::div(1, 2), Op::div(1, 4));
+        assert_eq!(Op::div(6, 7) * Op::div(1, 2), Op::div(3, 7));
+    }
+
+    #[test]
     fn test_add_div_num() {
         assert_eq!(Op::div(1, 2) + 3.into(), Op::div(7, 2));
         assert_eq!(Op::from(5) + Op::div(1, 2), Op::div(11, 2));
