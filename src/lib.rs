@@ -126,11 +126,11 @@ impl From<i32> for Op {
     fn from(value: i32) -> Self {
         if value < 0 {
             Op {
-                operation: -Operation::from(u32::try_from(value.abs()).unwrap()),
+                operation: -Operation::from(value.abs() as u32),
             }
         } else {
             Op {
-                operation: Operation::from(u32::try_from(value).unwrap()),
+                operation: Operation::from(value.abs() as u32),
             }
         }
     }
@@ -723,7 +723,7 @@ impl From<u32> for Number {
 
 impl Calc for Number {
     fn calc(&self) -> f64 {
-        f64::try_from(self.value).unwrap()
+        f64::from(self.value)
     }
 }
 
