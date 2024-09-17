@@ -254,6 +254,9 @@ impl Add for Operation {
             (Operation::Negation(first), Operation::Negation(second)) => first + second,
             (Operation::Number(first), Operation::Number(second)) => first + second,
 
+            (Operation::Number(num), any) if (num.value == 0) => any,
+            (any, Operation::Number(num)) if (num.value == 0) => any,
+
             // experimental
             (Operation::Division(div), any) => {
                 (any * (*div.divisor).clone() + (*div.divident)) / (*div.divisor)
@@ -285,6 +288,10 @@ impl Div for Operation {
             (Operation::Negation(divident), Operation::Negation(divisor)) => divident / divisor,
             (Operation::Number(divident), Operation::Number(divisor)) => divident / divisor,
 
+            (_, Operation::Number(num)) if (num.value == 0) => panic!("Cannot divide by zero."),
+            (any, Operation::Number(num)) if (num.value == 1) => any,
+            (Operation::Number(num), _) if (num.value == 0) => Operation::Number(num),
+
             (Operation::Negation(neg), any) => -((*neg.value) / any),
             (any, Operation::Negation(neg)) => -(any / (*neg.value)),
 
@@ -312,6 +319,11 @@ impl Mul for Operation {
             (Operation::Negation(first), Operation::Negation(second)) => first * second,
             (Operation::Number(first), Operation::Number(second)) => first * second,
 
+            (Operation::Number(num), _) if (num.value == 0) => Operation::Number(num),
+            (_, Operation::Number(num)) if (num.value == 0) => Operation::Number(num),
+            (Operation::Number(num), any) if (num.value == 1) => any,
+            (any, Operation::Number(num)) if (num.value == 1) => any,
+
             (any, Operation::Negation(neg)) => -(any * (*neg.value)),
             (Operation::Negation(neg), any) => -((*neg.value) * any),
 
@@ -335,6 +347,9 @@ impl Sub for Operation {
             (Operation::Division(first), Operation::Division(second)) => first - second,
             (Operation::Negation(first), Operation::Negation(second)) => first - second,
             (Operation::Number(first), Operation::Number(second)) => first - second,
+
+            (Operation::Number(num), any) if (num.value == 0) => -any,
+            (any, Operation::Number(num)) if (num.value == 0) => any,
 
             (Operation::Negation(neg), any) => -((*neg.value) + any),
             (any, Operation::Negation(neg)) => any + (*neg.value),
