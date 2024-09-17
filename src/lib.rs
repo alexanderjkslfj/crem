@@ -231,6 +231,10 @@ impl Sub for Operation {
             (Operation::Division(first), Operation::Division(second)) => first - second,
             (Operation::Negation(first), Operation::Negation(second)) => first - second,
             (Operation::Number(first), Operation::Number(second)) => first - second,
+
+            (Operation::Negation(neg), any) => -((*neg.value) + any),
+            (any, Operation::Negation(neg)) => any + (*neg.value),
+
             (first, second) => Operation::Addition(Addition {
                 first_summand: Box::new(first),
                 second_summand: Box::new(Operation::Negation(Negation {
@@ -630,7 +634,11 @@ impl Sub for Number {
     type Output = Operation;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Operation::from(self.value - rhs.value)
+        if self.value < rhs.value {
+            -Operation::from(rhs.value - self.value)
+        } else {
+            Operation::from(self.value - rhs.value)
+        }
     }
 }
 
