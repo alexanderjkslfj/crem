@@ -10,11 +10,29 @@ mod tests {
     }
 
     #[test]
+    fn test_negation() {
+        assert_ne!(Op::from(3), Op::from(-3));
+        assert_eq!(Op::from(0), Op::from(-0));
+        assert_eq!(-Op::from(3), Op::from(-3));
+        assert_eq!(Op::from(-3).calc(), -3.0);
+    }
+
+    #[test]
     fn test_addition() {
         assert_eq!(Op::from(4) + Op::from(3), Op::from(7));
         assert_eq!(Op::from(0) + Op::from(0), Op::from(0));
         assert_eq!(Op::from(1) + 2.into() + 3.into() + 4.into(), 10.into());
         assert_eq!((Op::from(1) + Op::from(2)).calc(), 3.0);
+    }
+
+    #[test]
+    fn test_subtraction() {
+        assert_eq!(Op::from(7) - Op::from(4), Op::from(3));
+        assert_eq!(Op::from(0) - Op::from(0), Op::from(0));
+        assert_eq!(Op::from(10) - 2.into() - 3.into() - 4.into(), 1.into());
+        assert_eq!(Op::from(1) - 2.into() - 3.into() - 4.into(), (-8i32).into());
+        assert_eq!((Op::from(5) - Op::from(3)).calc(), 2.0);
+        assert_eq!((Op::from(3) - Op::from(5)).calc(), -2.0);
     }
 
     #[test]
