@@ -184,8 +184,7 @@ impl Add for Operation {
             (any, Operation::Negation(neg)) => any - (*neg.value),
 
             (first, second) => Operation::Addition(Addition {
-                first_summand: Box::new(first),
-                second_summand: Box::new(second),
+                summands: vec![first, second],
             }),
         }
     }
@@ -238,8 +237,7 @@ impl Mul for Operation {
             (Operation::Division(div), any) => (any * (*div.divident)) / (*div.divisor),
 
             (first, second) => Operation::Multiplication(Multiplication {
-                multiplier: Box::new(first),
-                multiplicand: Box::new(second),
+                multipliers: vec![first, second],
             }),
         }
     }
@@ -260,10 +258,12 @@ impl Sub for Operation {
             (any, Operation::Negation(neg)) => any + (*neg.value),
 
             (first, second) => Operation::Addition(Addition {
-                first_summand: Box::new(first),
-                second_summand: Box::new(Operation::Negation(Negation {
-                    value: Box::new(second),
-                })),
+                summands: vec![
+                    first,
+                    Operation::Negation(Negation {
+                        value: Box::new(second),
+                    }),
+                ],
             }),
         }
     }
@@ -338,23 +338,23 @@ impl Neg for Negation {
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
 struct Addition {
-    pub first_summand: Box<Operation>,
-    pub second_summand: Box<Operation>,
+    pub summands: Vec<Operation>,
 }
 
 impl Calc for Addition {
     fn calc(&self) -> f64 {
-        self.first_summand.calc() + self.second_summand.calc()
+        self.summands.iter().map(|summand| summand.calc()).sum()
     }
 }
 
 impl Add for Addition {
     type Output = Operation;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(mut self, mut rhs: Self) -> Self::Output {
+        // TODO: optimize
+        self.summands.append(&mut rhs.summands);
         Operation::Addition(Addition {
-            first_summand: Box::new(Operation::Addition(self)),
-            second_summand: Box::new(Operation::Addition(rhs)),
+            summands: self.summands,
         })
     }
 }
@@ -364,8 +364,7 @@ impl Mul for Addition {
 
     fn mul(self, rhs: Self) -> Self::Output {
         Operation::Multiplication(Multiplication {
-            multiplier: Box::new(Operation::Addition(self)),
-            multiplicand: Box::new(Operation::Addition(rhs)),
+            multipliers: vec![Operation::Addition(self), Operation::Addition(rhs)],
         })
     }
 }
@@ -385,9 +384,13 @@ impl Sub for Addition {
     type Output = Operation;
 
     fn sub(self, rhs: Self) -> Self::Output {
+        // TODO: optimize
         Operation::Addition(Addition {
-            first_summand: Box::new(Operation::Addition(self)),
-            second_summand: Box::new(-rhs),
+            summands: self
+                .summands
+                .into_iter()
+                .chain(rhs.summands.into_iter().map(|summand| -summand))
+                .collect(),
         })
     }
 }
@@ -478,43 +481,54 @@ impl Neg for Division {
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
 struct Multiplication {
-    multiplier: Box<Operation>,
-    multiplicand: Box<Operation>,
+    multipliers: Vec<Operation>,
 }
 
 impl Calc for Multiplication {
     fn calc(&self) -> f64 {
-        self.multiplier.calc() * self.multiplicand.calc()
+        self.multipliers
+            .iter()
+            .map(|multiplier| multiplier.calc())
+            .product()
     }
 }
 
 impl Add for Multiplication {
     type Output = Operation;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        let s_multiplier = *self.multiplier;
-        let s_multiplicand = *self.multiplicand;
-        let r_multiplier = *rhs.multiplier;
-        let r_multiplicand = *rhs.multiplicand;
+    fn add(mut self, mut rhs: Self) -> Self::Output {
+        let mut on_both_sides = Vec::new();
 
-        if s_multiplicand == r_multiplicand {
-            s_multiplicand * (s_multiplier + r_multiplier)
-        } else if s_multiplicand == r_multiplier {
-            s_multiplicand * (s_multiplier + r_multiplicand)
-        } else if s_multiplier == r_multiplicand {
-            s_multiplier * (s_multiplicand + r_multiplier)
-        } else if s_multiplier == r_multiplier {
-            s_multiplier * (s_multiplicand + r_multiplicand)
-        } else {
+        // TODO: optimize
+        for i in (0..self.multipliers.len()).rev() {
+            for j in (i..rhs.multipliers.len()).rev() {
+                if self.multipliers[i] == rhs.multipliers[j] {
+                    on_both_sides.push(self.multipliers.remove(i));
+                    rhs.multipliers.remove(j);
+                }
+            }
+        }
+
+        if on_both_sides.is_empty() {
             Operation::Addition(Addition {
-                first_summand: Box::new(Operation::Multiplication(Multiplication {
-                    multiplier: Box::new(s_multiplier),
-                    multiplicand: Box::new(s_multiplicand),
-                })),
-                second_summand: Box::new(Operation::Multiplication(Multiplication {
-                    multiplier: Box::new(r_multiplier),
-                    multiplicand: Box::new(r_multiplicand),
-                })),
+                summands: vec![
+                    Operation::Multiplication(self),
+                    Operation::Multiplication(rhs),
+                ],
+            })
+        } else {
+            on_both_sides.push(Operation::Addition(Addition {
+                summands: vec![
+                    Operation::Multiplication(Multiplication {
+                        multipliers: self.multipliers,
+                    }),
+                    Operation::Multiplication(Multiplication {
+                        multipliers: rhs.multipliers,
+                    }),
+                ],
+            }));
+            Operation::Multiplication(Multiplication {
+                multipliers: on_both_sides,
             })
         }
     }
@@ -523,10 +537,11 @@ impl Add for Multiplication {
 impl Mul for Multiplication {
     type Output = Operation;
 
-    fn mul(self, rhs: Self) -> Self::Output {
+    fn mul(mut self, mut rhs: Self) -> Self::Output {
+        // TODO: optimize
+        self.multipliers.append(&mut rhs.multipliers);
         Operation::Multiplication(Multiplication {
-            multiplier: Box::new(Operation::Multiplication(self)),
-            multiplicand: Box::new(Operation::Multiplication(rhs)),
+            multipliers: self.multipliers,
         })
     }
 }
@@ -534,51 +549,55 @@ impl Mul for Multiplication {
 impl Div for Multiplication {
     type Output = Operation;
 
-    fn div(self, rhs: Self) -> Self::Output {
-        if self.multiplier == rhs.multiplier {
-            (*self.multiplicand) / (*rhs.multiplicand)
-        } else if self.multiplier == rhs.multiplicand {
-            (*self.multiplicand) / (*rhs.multiplier)
-        } else if self.multiplicand == rhs.multiplier {
-            (*self.multiplier) / (*rhs.multiplicand)
-        } else if self.multiplicand == rhs.multiplicand {
-            (*self.multiplier) / (*rhs.multiplier)
-        } else {
-            Operation::Division(Division {
-                divident: Box::new(Operation::Multiplication(self)),
-                divisor: Box::new(Operation::Multiplication(rhs)),
-            })
+    fn div(mut self, mut rhs: Self) -> Self::Output {
+        for i in (0..self.multipliers.len()).rev() {
+            for j in (i..rhs.multipliers.len()).rev() {
+                if self.multipliers[i] == rhs.multipliers[j] {
+                    self.multipliers.remove(i);
+                    rhs.multipliers.remove(j);
+                }
+            }
         }
+        Operation::Division(Division {
+            divident: Box::new(Operation::Multiplication(self)),
+            divisor: Box::new(Operation::Multiplication(rhs)),
+        })
     }
 }
 
 impl Sub for Multiplication {
     type Output = Operation;
 
-    fn sub(self, rhs: Self) -> Self::Output {
-        let s_multiplier = *self.multiplier;
-        let s_multiplicand = *self.multiplicand;
-        let r_multiplier = *rhs.multiplier;
-        let r_multiplicand = *rhs.multiplicand;
+    fn sub(mut self, mut rhs: Self) -> Self::Output {
+        let mut on_both_sides = Vec::new();
 
-        if s_multiplicand == r_multiplicand {
-            s_multiplicand * (s_multiplier - r_multiplier)
-        } else if s_multiplicand == r_multiplier {
-            s_multiplicand * (s_multiplier - r_multiplicand)
-        } else if s_multiplier == r_multiplicand {
-            s_multiplier * (s_multiplicand - r_multiplier)
-        } else if s_multiplier == r_multiplier {
-            s_multiplier * (s_multiplicand - r_multiplicand)
-        } else {
+        // TODO: optimize
+        for i in (0..self.multipliers.len()).rev() {
+            for j in (i..rhs.multipliers.len()).rev() {
+                if self.multipliers[i] == rhs.multipliers[j] {
+                    on_both_sides.push(self.multipliers.remove(i));
+                    rhs.multipliers.remove(j);
+                }
+            }
+        }
+
+        if on_both_sides.is_empty() {
             Operation::Addition(Addition {
-                first_summand: Box::new(Operation::Multiplication(Multiplication {
-                    multiplier: Box::new(s_multiplier),
-                    multiplicand: Box::new(s_multiplicand),
-                })),
-                second_summand: Box::new(-Operation::Multiplication(Multiplication {
-                    multiplier: Box::new(r_multiplier),
-                    multiplicand: Box::new(r_multiplicand),
-                })),
+                summands: vec![Operation::Multiplication(self), -rhs],
+            })
+        } else {
+            on_both_sides.push(Operation::Addition(Addition {
+                summands: vec![
+                    Operation::Multiplication(Multiplication {
+                        multipliers: self.multipliers,
+                    }),
+                    -Operation::Multiplication(Multiplication {
+                        multipliers: rhs.multipliers,
+                    }),
+                ],
+            }));
+            Operation::Multiplication(Multiplication {
+                multipliers: on_both_sides,
             })
         }
     }
