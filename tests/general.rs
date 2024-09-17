@@ -23,6 +23,7 @@ mod tests {
         assert_eq!(Op::from(0) + Op::from(0), Op::from(0));
         assert_eq!(Op::from(1) + 2.into() + 3.into() + 4.into(), 10.into());
         assert_eq!((Op::from(1) + Op::from(2)).calc(), 3.0);
+        assert_eq!(Op::from(5) + Op::from(-3), Op::from(2));
     }
 
     #[test]
@@ -75,5 +76,14 @@ mod tests {
         );
         assert_eq!(Op::div(2, 3) + Op::div(1, 6), Op::div(5, 6));
         assert_eq!(Op::div(1, 3) + Op::div(2, 3), Op::from(1));
+    }
+
+    #[test]
+    fn test_nested_divisions() {
+        assert_eq!(Op::from(5) / (Op::from(1) / Op::from(2)), Op::from(10));
+        assert_eq!(
+            (Op::from(3) / Op::from(2)) / Op::from(2),
+            Op::from(3) / Op::from(4)
+        );
     }
 }

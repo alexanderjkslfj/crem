@@ -171,6 +171,10 @@ impl Add for Operation {
             (Operation::Division(first), Operation::Division(second)) => first + second,
             (Operation::Negation(first), Operation::Negation(second)) => first + second,
             (Operation::Number(first), Operation::Number(second)) => first + second,
+
+            (Operation::Negation(neg), any) => any - (*neg.value),
+            (any, Operation::Negation(neg)) => any - (*neg.value),
+
             (first, second) => Operation::Addition(Addition {
                 first_summand: Box::new(first),
                 second_summand: Box::new(second),
@@ -191,6 +195,10 @@ impl Div for Operation {
             (Operation::Division(divident), Operation::Division(divisor)) => divident / divisor,
             (Operation::Negation(divident), Operation::Negation(divisor)) => divident / divisor,
             (Operation::Number(divident), Operation::Number(divisor)) => divident / divisor,
+
+            (any, Operation::Division(div)) => any * ((*div.divisor) / (*div.divident)),
+            (Operation::Division(div), any) => Operation::from(1) / (any * ((*div.divisor) / (*div.divident))),
+
             (divident, divisor) => Operation::Division(Division {
                 divident: Box::new(divident),
                 divisor: Box::new(divisor),
