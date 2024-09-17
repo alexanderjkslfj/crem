@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_division() {
         assert_eq!(Op::div(3, 6), Op::div(1, 2));
-        assert_eq!(Op::div(3, 6), Op::div(1, 2));
+        assert_eq!(Op::div(3, 6).calc(), Op::div(1, 2).calc());
         assert_eq!(Op::div(3, 10).calc(), 0.3);
     }
 
@@ -48,6 +48,23 @@ mod tests {
         assert_eq!(Op::from(2) * Op::from(3), Op::from(6));
         assert_eq!(Op::from(1) * Op::from(3), Op::from(3));
         assert_eq!(Op::from(0) * Op::from(3), Op::from(0));
+    }
+
+    #[test]
+    fn test_casting_floats() {
+        assert_eq!(Op::from(1.0f32), Op::from(1));
+        assert_eq!(Op::from(0.2f32), Op::div(2, 10));
+        assert_eq!(Op::from(1.2f32), Op::from(1) + Op::div(2, 10));
+        assert_eq!(Op::from(-1.0f32), -Op::from(1));
+        assert_eq!(Op::from(-0.2f32), -Op::div(2, 10));
+        assert_eq!(Op::from(-1.2f32), -Op::from(1) - Op::div(2, 10));
+
+        assert_eq!(Op::from(1.0f64), Op::from(1));
+        assert_eq!(Op::from(0.2f64), Op::div(2, 10));
+        assert_eq!(Op::from(1.2f64), Op::from(1) + Op::div(2, 10));
+        assert_eq!(Op::from(-1.0f64), -Op::from(1));
+        assert_eq!(Op::from(-0.2f64), -Op::div(2, 10));
+        assert_eq!(Op::from(-1.2f64), -Op::from(1) - Op::div(2, 10));
     }
 
     #[test]

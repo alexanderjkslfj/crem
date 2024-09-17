@@ -20,6 +20,60 @@ impl Op {
     }
 }
 
+impl From<f64> for Op {
+    fn from(mut value: f64) -> Self {
+        let invert = value < 0.0;
+        if invert {
+            value = -value;
+        }
+
+        let mut exponent = 0;
+
+        loop {
+            let offset = 10.0f64.powi(exponent);
+
+            let raised = value * offset;
+
+            if raised == raised.trunc() {
+                if invert {
+                    return -Op::div(raised as u32, offset as u32);
+                } else {
+                    return Op::div(raised as u32, offset as u32);
+                }
+            }
+
+            exponent += 1;
+        }
+    }
+}
+
+impl From<f32> for Op {
+    fn from(mut value: f32) -> Self {
+        let invert = value < 0.0;
+        if invert {
+            value = -value;
+        }
+
+        let mut exponent = 0;
+
+        loop {
+            let offset = 10.0f32.powi(exponent);
+
+            let raised = value * offset;
+
+            if raised == raised.trunc() {
+                if invert {
+                    return -Op::div(raised as u32, offset as u32);
+                } else {
+                    return Op::div(raised as u32, offset as u32);
+                }
+            }
+
+            exponent += 1;
+        }
+    }
+}
+
 impl From<u32> for Op {
     fn from(value: u32) -> Self {
         Op {
