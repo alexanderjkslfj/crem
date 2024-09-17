@@ -196,8 +196,13 @@ impl Div for Operation {
             (Operation::Negation(divident), Operation::Negation(divisor)) => divident / divisor,
             (Operation::Number(divident), Operation::Number(divisor)) => divident / divisor,
 
+            (Operation::Negation(neg), any) => -((*neg.value) / any),
+            (any, Operation::Negation(neg)) => -(any / (*neg.value)),
+
             (any, Operation::Division(div)) => any * ((*div.divisor) / (*div.divident)),
-            (Operation::Division(div), any) => Operation::from(1) / (any * ((*div.divisor) / (*div.divident))),
+            (Operation::Division(div), any) => {
+                Operation::from(1) / (any * ((*div.divisor) / (*div.divident)))
+            }
 
             (divident, divisor) => Operation::Division(Division {
                 divident: Box::new(divident),
@@ -217,6 +222,9 @@ impl Mul for Operation {
             (Operation::Division(first), Operation::Division(second)) => first * second,
             (Operation::Negation(first), Operation::Negation(second)) => first * second,
             (Operation::Number(first), Operation::Number(second)) => first * second,
+
+            (any, Operation::Negation(neg)) => -(any * (*neg.value)),
+            (Operation::Negation(neg), any) => -((*neg.value) * any),
 
             (any, Operation::Division(div)) => (any * (*div.divident)) / (*div.divisor),
             (Operation::Division(div), any) => (any * (*div.divident)) / (*div.divisor),
