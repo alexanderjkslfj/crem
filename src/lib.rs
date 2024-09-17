@@ -20,8 +20,22 @@ impl Op {
     }
 }
 
-impl From<f64> for Op {
-    fn from(mut value: f64) -> Self {
+const MAX_U32_AS_F64: f64 = u32::MAX as f64;
+
+fn f64_to_u32(value: f64) -> Result<u32, ()> {
+    if value.fract() != 0.0 {
+        return Err(());
+    }
+    if value > MAX_U32_AS_F64 {
+        return Err(());
+    }
+    Ok(value as u32)
+}
+
+impl TryFrom<f64> for Op {
+    type Error = ();
+
+    fn try_from(mut value: f64) -> Result<Self, Self::Error> {
         let invert = value < 0.0;
         if invert {
             value = -value;
@@ -36,9 +50,9 @@ impl From<f64> for Op {
 
             if raised == raised.trunc() {
                 if invert {
-                    return -Op::div(raised as u32, offset as u32);
+                    return Ok(-Op::div(f64_to_u32(raised)?, offset as u32));
                 } else {
-                    return Op::div(raised as u32, offset as u32);
+                    return Ok(Op::div(f64_to_u32(raised)?, offset as u32));
                 }
             }
 
@@ -47,8 +61,22 @@ impl From<f64> for Op {
     }
 }
 
-impl From<f32> for Op {
-    fn from(mut value: f32) -> Self {
+const MAX_U32_AS_F32: f32 = u32::MAX as f32;
+
+fn f32_to_u32(value: f32) -> Result<u32, ()> {
+    if value.fract() != 0.0 {
+        return Err(());
+    }
+    if value > MAX_U32_AS_F32 {
+        return Err(());
+    }
+    Ok(value as u32)
+}
+
+impl TryFrom<f32> for Op {
+    type Error = ();
+
+    fn try_from(mut value: f32) -> Result<Self, Self::Error> {
         let invert = value < 0.0;
         if invert {
             value = -value;
@@ -63,9 +91,9 @@ impl From<f32> for Op {
 
             if raised == raised.trunc() {
                 if invert {
-                    return -Op::div(raised as u32, offset as u32);
+                    return Ok(-Op::div(f32_to_u32(raised)?, offset as u32));
                 } else {
-                    return Op::div(raised as u32, offset as u32);
+                    return Ok(Op::div(f32_to_u32(raised)?, offset as u32));
                 }
             }
 
@@ -680,7 +708,7 @@ impl From<u32> for Number {
 
 impl Calc for Number {
     fn calc(&self) -> f64 {
-        f64::from(self.value)
+        f64::try_from(self.value).unwrap()
     }
 }
 
@@ -739,9 +767,13 @@ impl Neg for Number {
     type Output = Operation;
 
     fn neg(self) -> Self::Output {
-        Operation::Negation(Negation {
-            value: Box::new(Operation::Number(self)),
-        })
+        if self.value == 0 {
+            Operation::Number(self)
+        } else {
+            Operation::Negation(Negation {
+                value: Box::new(Operation::Number(self)),
+            })
+        }
     }
 }
 

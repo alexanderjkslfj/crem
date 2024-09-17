@@ -51,20 +51,22 @@ mod tests {
     }
 
     #[test]
-    fn test_casting_floats() {
-        assert_eq!(Op::from(1.0f32), Op::from(1));
-        assert_eq!(Op::from(0.2f32), Op::div(2, 10));
-        assert_eq!(Op::from(1.2f32), Op::from(1) + Op::div(2, 10));
-        assert_eq!(Op::from(-1.0f32), -Op::from(1));
-        assert_eq!(Op::from(-0.2f32), -Op::div(2, 10));
-        assert_eq!(Op::from(-1.2f32), -Op::from(1) - Op::div(2, 10));
+    fn test_casting_floats() -> Result<(), ()> {
+        assert_eq!(Op::try_from(1.0f32)?, Op::from(1));
+        assert_eq!(Op::try_from(0.2f32)?, Op::div(2, 10));
+        assert_eq!(Op::try_from(1.2f32)?, Op::from(1) + Op::div(2, 10));
+        assert_eq!(Op::try_from(-1.0f32)?, -Op::from(1));
+        assert_eq!(Op::try_from(-0.2f32)?, -Op::div(2, 10));
+        assert_eq!(Op::try_from(-1.2f32)?, -Op::from(1) - Op::div(2, 10));
 
-        assert_eq!(Op::from(1.0f64), Op::from(1));
-        assert_eq!(Op::from(0.2f64), Op::div(2, 10));
-        assert_eq!(Op::from(1.2f64), Op::from(1) + Op::div(2, 10));
-        assert_eq!(Op::from(-1.0f64), -Op::from(1));
-        assert_eq!(Op::from(-0.2f64), -Op::div(2, 10));
-        assert_eq!(Op::from(-1.2f64), -Op::from(1) - Op::div(2, 10));
+        assert_eq!(Op::try_from(1.0f64)?, Op::from(1));
+        assert_eq!(Op::try_from(0.2f64)?, Op::div(2, 10));
+        assert_eq!(Op::try_from(1.2f64)?, Op::from(1) + Op::div(2, 10));
+        assert_eq!(Op::try_from(-1.0f64)?, -Op::from(1));
+        assert_eq!(Op::try_from(-0.2f64)?, -Op::div(2, 10));
+        assert_eq!(Op::try_from(-1.2f64)?, -Op::from(1) - Op::div(2, 10));
+
+        Ok(())
     }
 
     #[test]
