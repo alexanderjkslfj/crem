@@ -26,6 +26,25 @@ impl Term {
         self.operation.calc()
     }
 
+    /// Replaces all matching variables with the given term.
+    pub fn set_variable(&mut self, name: &str, term: &Term) {
+        match &mut self.operation {
+            Operation::Variable(var) => {
+                if var.name == name {
+                    self.operation = term.operation.clone();
+                }
+            }
+            any => any.set_variable(name, &term.operation),
+        }
+    }
+
+    /// Creates a new variable.
+    pub fn new_variable(name: String) -> Self {
+        Term {
+            operation: Operation::Variable(Variable::from(name)),
+        }
+    }
+
     /// Creates a division. Simplifies if possible.
     ///
     /// ```rust
@@ -266,6 +285,10 @@ trait Calc {
     fn calc(&self) -> f64;
 }
 
+trait SetVar {
+    fn set_variable(&mut self, name: &str, value: &Operation);
+}
+
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 enum Operation {
     Addition(Addition),
@@ -273,6 +296,20 @@ enum Operation {
     Division(Division),
     Negation(Negation),
     Number(Number),
+    Variable(Variable),
+}
+
+impl SetVar for Operation {
+    fn set_variable(&mut self, name: &str, value: &Operation) {
+        match self {
+            Operation::Addition(add) => add.set_variable(name, value),
+            Operation::Multiplication(mul) => mul.set_variable(name, value),
+            Operation::Division(div) => div.set_variable(name, value),
+            Operation::Negation(neg) => neg.set_variable(name, value),
+            // NOTE: match with default
+            _ => (),
+        }
+    }
 }
 
 impl Calc for Operation {
@@ -283,6 +320,7 @@ impl Calc for Operation {
             Operation::Division(div) => div.calc(),
             Operation::Negation(inv) => inv.calc(),
             Operation::Number(num) => num.calc(),
+            Operation::Variable(_) => panic!("Cannot calculate result of term with variables."),
         }
     }
 }
@@ -309,6 +347,7 @@ impl Add for Operation {
             (Operation::Division(first), Operation::Division(second)) => first + second,
             (Operation::Negation(first), Operation::Negation(second)) => first + second,
             (Operation::Number(first), Operation::Number(second)) => first + second,
+            (Operation::Variable(first), Operation::Variable(second)) => first + second,
 
             (Operation::Number(num), any) if (num.value == 0) => any,
             (any, Operation::Number(num)) if (num.value == 0) => any,
@@ -324,6 +363,7 @@ impl Add for Operation {
             (Operation::Negation(neg), any) => any - (*neg.value),
             (any, Operation::Negation(neg)) => any - (*neg.value),
 
+            // NOTE: match with default
             (first, second) => Operation::Addition(Addition {
                 summands: vec![first, second],
             }),
@@ -343,6 +383,7 @@ impl Div for Operation {
             (Operation::Division(divident), Operation::Division(divisor)) => divident / divisor,
             (Operation::Negation(divident), Operation::Negation(divisor)) => divident / divisor,
             (Operation::Number(divident), Operation::Number(divisor)) => divident / divisor,
+            (Operation::Variable(divident), Operation::Variable(divisor)) => divident / divisor,
 
             (_, Operation::Number(num)) if (num.value == 0) => panic!("Cannot divide by zero."),
             (any, Operation::Number(num)) if (num.value == 1) => any,
@@ -356,6 +397,7 @@ impl Div for Operation {
                 Operation::from(1) / (any * ((*div.divisor) / (*div.divident)))
             }
 
+            // NOTE: match with default
             (divident, divisor) => Operation::Division(Division {
                 divident: Box::new(divident),
                 divisor: Box::new(divisor),
@@ -374,6 +416,7 @@ impl Mul for Operation {
             (Operation::Division(first), Operation::Division(second)) => first * second,
             (Operation::Negation(first), Operation::Negation(second)) => first * second,
             (Operation::Number(first), Operation::Number(second)) => first * second,
+            (Operation::Variable(first), Operation::Variable(second)) => first * second,
 
             (Operation::Number(num), _) if (num.value == 0) => Operation::Number(num),
             (_, Operation::Number(num)) if (num.value == 0) => Operation::Number(num),
@@ -386,6 +429,7 @@ impl Mul for Operation {
             (any, Operation::Division(div)) => (any * (*div.divident)) / (*div.divisor),
             (Operation::Division(div), any) => (any * (*div.divident)) / (*div.divisor),
 
+            // NOTE: match with default
             (first, second) => Operation::Multiplication(Multiplication {
                 multipliers: vec![first, second],
             }),
@@ -403,6 +447,7 @@ impl Sub for Operation {
             (Operation::Division(first), Operation::Division(second)) => first - second,
             (Operation::Negation(first), Operation::Negation(second)) => first - second,
             (Operation::Number(first), Operation::Number(second)) => first - second,
+            (Operation::Variable(first), Operation::Variable(second)) => first - second,
 
             (Operation::Number(num), any) if (num.value == 0) => -any,
             (any, Operation::Number(num)) if (num.value == 0) => any,
@@ -410,6 +455,7 @@ impl Sub for Operation {
             (Operation::Negation(neg), any) => -((*neg.value) + any),
             (any, Operation::Negation(neg)) => any + (*neg.value),
 
+            // NOTE: match with default
             (first, second) => Operation::Addition(Addition {
                 summands: vec![
                     first,
@@ -432,6 +478,7 @@ impl Neg for Operation {
             Operation::Division(div) => -div,
             Operation::Negation(neg) => -neg,
             Operation::Number(num) => -num,
+            Operation::Variable(var) => -var,
         }
     }
 }
@@ -439,6 +486,19 @@ impl Neg for Operation {
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
 struct Negation {
     pub value: Box<Operation>,
+}
+
+impl SetVar for Negation {
+    fn set_variable(&mut self, name: &str, value: &Operation) {
+        match &mut (*self.value) {
+            Operation::Variable(var) => {
+                if var.name == name {
+                    self.value = Box::new(value.clone())
+                }
+            }
+            any => any.set_variable(name, value),
+        }
+    }
 }
 
 impl Calc for Negation {
@@ -492,6 +552,21 @@ impl Neg for Negation {
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
 struct Addition {
     pub summands: Vec<Operation>,
+}
+
+impl SetVar for Addition {
+    fn set_variable(&mut self, name: &str, value: &Operation) {
+        for i in 0..self.summands.len() {
+            match &mut self.summands[i] {
+                Operation::Variable(var) => {
+                    if var.name == name {
+                        self.summands[i] = value.clone()
+                    }
+                }
+                any => any.set_variable(name, value),
+            }
+        }
+    }
 }
 
 impl Calc for Addition {
@@ -562,6 +637,27 @@ impl Neg for Addition {
 struct Division {
     pub divident: Box<Operation>,
     pub divisor: Box<Operation>,
+}
+
+impl SetVar for Division {
+    fn set_variable(&mut self, name: &str, value: &Operation) {
+        match &mut *self.divident {
+            Operation::Variable(var) => {
+                if var.name == name {
+                    self.divident = Box::new(value.clone())
+                }
+            }
+            any => any.set_variable(name, value),
+        }
+        match &mut *self.divisor {
+            Operation::Variable(var) => {
+                if var.name == name {
+                    self.divisor = Box::new(value.clone())
+                }
+            }
+            any => any.set_variable(name, value),
+        }
+    }
 }
 
 impl Calc for Division {
@@ -635,6 +731,21 @@ impl Neg for Division {
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
 struct Multiplication {
     multipliers: Vec<Operation>,
+}
+
+impl SetVar for Multiplication {
+    fn set_variable(&mut self, name: &str, value: &Operation) {
+        for i in 0..self.multipliers.len() {
+            match &mut self.multipliers[i] {
+                Operation::Variable(var) => {
+                    if var.name == name {
+                        self.multipliers[i] = value.clone()
+                    }
+                }
+                any => any.set_variable(name, value),
+            }
+        }
+    }
 }
 
 impl Calc for Multiplication {
@@ -766,7 +877,7 @@ impl Neg for Multiplication {
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Default, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone, Copy)]
 struct Number {
     value: u32,
 }
@@ -858,4 +969,76 @@ fn greatest_common_divisor(a: u32, b: u32) -> u32 {
     }
 
     bigger
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
+struct Variable {
+    name: String,
+}
+
+impl From<String> for Variable {
+    fn from(value: String) -> Self {
+        Variable { name: value }
+    }
+}
+
+impl Add for Variable {
+    type Output = Operation;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        if self.name == rhs.name {
+            Operation::Multiplication(Multiplication {
+                multipliers: vec![Operation::from(2u32), Operation::Variable(self)],
+            })
+        } else {
+            Operation::Addition(Addition {
+                summands: vec![Operation::Variable(self), Operation::Variable(rhs)],
+            })
+        }
+    }
+}
+
+impl Mul for Variable {
+    type Output = Operation;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Operation::Multiplication(Multiplication {
+            multipliers: vec![Operation::Variable(self), Operation::Variable(rhs)],
+        })
+    }
+}
+
+impl Div for Variable {
+    type Output = Operation;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Operation::Division(Division {
+            divident: Box::new(Operation::Variable(self)),
+            divisor: Box::new(Operation::Variable(rhs)),
+        })
+    }
+}
+
+impl Sub for Variable {
+    type Output = Operation;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        if self == rhs {
+            Operation::from(0u32)
+        } else {
+            Operation::Addition(Addition {
+                summands: vec![Operation::Variable(self), -Operation::Variable(rhs)],
+            })
+        }
+    }
+}
+
+impl Neg for Variable {
+    type Output = Operation;
+
+    fn neg(self) -> Self::Output {
+        Operation::Negation(Negation {
+            value: Box::new(Operation::Variable(self)),
+        })
+    }
 }
