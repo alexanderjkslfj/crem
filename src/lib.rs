@@ -1,11 +1,11 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
-pub struct Op {
+pub struct Term {
     operation: Operation,
 }
 
-impl Op {
+impl Term {
     pub fn calc(&self) -> f64 {
         self.operation.calc()
     }
@@ -32,12 +32,12 @@ fn f64_to_u32(value: f64) -> Result<u32, ()> {
     Ok(value as u32)
 }
 
-impl TryFrom<f64> for Op {
+impl TryFrom<f64> for Term {
     type Error = ();
 
     fn try_from(mut value: f64) -> Result<Self, Self::Error> {
         if value == 0.0 {
-            return Ok(Op::from(0u32));
+            return Ok(Term::from(0u32));
         }
 
         let invert = value.is_sign_negative();
@@ -54,9 +54,9 @@ impl TryFrom<f64> for Op {
 
             if raised == raised.trunc() {
                 if invert {
-                    return Ok(-Op::div(f64_to_u32(raised)?, offset as u32));
+                    return Ok(-Term::div(f64_to_u32(raised)?, offset as u32));
                 } else {
-                    return Ok(Op::div(f64_to_u32(raised)?, offset as u32));
+                    return Ok(Term::div(f64_to_u32(raised)?, offset as u32));
                 }
             }
 
@@ -77,12 +77,12 @@ fn f32_to_u32(value: f32) -> Result<u32, ()> {
     Ok(value as u32)
 }
 
-impl TryFrom<f32> for Op {
+impl TryFrom<f32> for Term {
     type Error = ();
 
     fn try_from(mut value: f32) -> Result<Self, Self::Error> {
         if value == 0.0 {
-            return Ok(Op::from(0u32));
+            return Ok(Term::from(0u32));
         }
 
         let invert = value.is_sign_negative();
@@ -99,9 +99,9 @@ impl TryFrom<f32> for Op {
 
             if raised == raised.trunc() {
                 if invert {
-                    return Ok(-Op::div(f32_to_u32(raised)?, offset as u32));
+                    return Ok(-Term::div(f32_to_u32(raised)?, offset as u32));
                 } else {
-                    return Ok(Op::div(f32_to_u32(raised)?, offset as u32));
+                    return Ok(Term::div(f32_to_u32(raised)?, offset as u32));
                 }
             }
 
@@ -110,105 +110,105 @@ impl TryFrom<f32> for Op {
     }
 }
 
-impl From<u32> for Op {
+impl From<u32> for Term {
     fn from(value: u32) -> Self {
-        Op {
+        Term {
             operation: Operation::from(value),
         }
     }
 }
 
-impl From<u16> for Op {
+impl From<u16> for Term {
     fn from(value: u16) -> Self {
-        Op::from(u32::from(value))
+        Term::from(u32::from(value))
     }
 }
 
-impl From<u8> for Op {
+impl From<u8> for Term {
     fn from(value: u8) -> Self {
-        Op::from(u32::from(value))
+        Term::from(u32::from(value))
     }
 }
 
-impl From<i32> for Op {
+impl From<i32> for Term {
     fn from(value: i32) -> Self {
         if value < 0 {
-            Op {
+            Term {
                 operation: -Operation::from(value.abs() as u32),
             }
         } else {
-            Op {
+            Term {
                 operation: Operation::from(value.abs() as u32),
             }
         }
     }
 }
 
-impl From<i16> for Op {
+impl From<i16> for Term {
     fn from(value: i16) -> Self {
-        Op::from(i32::from(value))
+        Term::from(i32::from(value))
     }
 }
 
-impl From<i8> for Op {
+impl From<i8> for Term {
     fn from(value: i8) -> Self {
-        Op::from(i32::from(value))
+        Term::from(i32::from(value))
     }
 }
 
-impl Default for Op {
+impl Default for Term {
     fn default() -> Self {
-        Op {
+        Term {
             operation: Operation::default(),
         }
     }
 }
 
-impl Add for Op {
-    type Output = Op;
+impl Add for Term {
+    type Output = Term;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Op {
+        Term {
             operation: self.operation + rhs.operation,
         }
     }
 }
 
-impl Sub for Op {
-    type Output = Op;
+impl Sub for Term {
+    type Output = Term;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Op {
+        Term {
             operation: self.operation - rhs.operation,
         }
     }
 }
 
-impl Mul for Op {
-    type Output = Op;
+impl Mul for Term {
+    type Output = Term;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Op {
+        Term {
             operation: self.operation * rhs.operation,
         }
     }
 }
 
-impl Div for Op {
-    type Output = Op;
+impl Div for Term {
+    type Output = Term;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Op {
+        Term {
             operation: self.operation / rhs.operation,
         }
     }
 }
 
-impl Neg for Op {
-    type Output = Op;
+impl Neg for Term {
+    type Output = Term;
 
     fn neg(self) -> Self::Output {
-        Op {
+        Term {
             operation: -self.operation,
         }
     }
