@@ -10,6 +10,19 @@ mod tests {
     }
 
     #[test]
+    fn test_integer_variations() {
+        assert_eq!(Op::from(3u32), Op::from(3u16));
+        assert_eq!(Op::from(3u32), Op::from(3u8));
+        assert_eq!(Op::from(3i32), Op::from(3i16));
+        assert_eq!(Op::from(3i32), Op::from(3i8));
+        assert_eq!(Op::from(3i32), Op::from(3u16));
+        assert_eq!(Op::from(3i32), Op::from(3u8));
+        assert_eq!(Op::from(-3i32), Op::from(-3i16));
+        assert_eq!(Op::from(-3i32), Op::from(-3i8));
+        assert_ne!(Op::from(-3i32), Op::from(3i32));
+    }
+
+    #[test]
     fn test_negation() {
         assert_ne!(Op::from(3), Op::from(-3));
         assert_eq!(Op::from(0), Op::from(-0));
@@ -55,6 +68,7 @@ mod tests {
         assert_eq!(Op::try_from(1.0f32)?, Op::from(1));
         assert_eq!(Op::try_from(0.2f32)?, Op::div(2, 10));
         assert_eq!(Op::try_from(1.2f32)?, Op::from(1) + Op::div(2, 10));
+        assert_eq!(Op::try_from(-0f32)?, Op::from(0));
         assert_eq!(Op::try_from(-1.0f32)?, -Op::from(1));
         assert_eq!(Op::try_from(-0.2f32)?, -Op::div(2, 10));
         assert_eq!(Op::try_from(-1.2f32)?, -Op::from(1) - Op::div(2, 10));
@@ -62,6 +76,7 @@ mod tests {
         assert_eq!(Op::try_from(1.0f64)?, Op::from(1));
         assert_eq!(Op::try_from(0.2f64)?, Op::div(2, 10));
         assert_eq!(Op::try_from(1.2f64)?, Op::from(1) + Op::div(2, 10));
+        assert_eq!(Op::try_from(-0f64)?, Op::from(0));
         assert_eq!(Op::try_from(-1.0f64)?, -Op::from(1));
         assert_eq!(Op::try_from(-0.2f64)?, -Op::div(2, 10));
         assert_eq!(Op::try_from(-1.2f64)?, -Op::from(1) - Op::div(2, 10));

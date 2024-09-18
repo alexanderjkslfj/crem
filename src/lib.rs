@@ -36,7 +36,11 @@ impl TryFrom<f64> for Op {
     type Error = ();
 
     fn try_from(mut value: f64) -> Result<Self, Self::Error> {
-        let invert = value < 0.0;
+        if value == 0.0 {
+            return Ok(Op::from(0u32));
+        }
+
+        let invert = value.is_sign_negative();
         if invert {
             value = -value;
         }
@@ -77,7 +81,11 @@ impl TryFrom<f32> for Op {
     type Error = ();
 
     fn try_from(mut value: f32) -> Result<Self, Self::Error> {
-        let invert = value < 0.0;
+        if value == 0.0 {
+            return Ok(Op::from(0u32));
+        }
+
+        let invert = value.is_sign_negative();
         if invert {
             value = -value;
         }
