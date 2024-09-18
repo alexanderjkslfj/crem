@@ -1,20 +1,39 @@
+//! Calculate with minimal precision loss: Terms created using `crem` are automatically simplified, reducing precision loss to a minimum.
+
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
+/// A mathematical term.
+///
+/// The term is simplified before being calculated, minimizing precision loss.
+///
+/// ```rust
+/// # use crem::Term;
+/// assert_ne!(0.1 + 0.2, 0.3);
+/// assert_eq!((Term::try_from(0.1)? + Term::try_from(0.2)?).calc(), 0.3);
+/// # Ok::<(), ()>(())
+/// ```
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct Term {
     operation: Operation,
 }
 
 impl Term {
+    /// Calculates the result of the term.
     pub fn calc(&self) -> f64 {
         self.operation.calc()
     }
-    pub fn add(first: u32, second: u32) -> Self {
-        Self::from(first + second)
-    }
-    pub fn mul(multiplier: u32, multiplicant: u32) -> Self {
-        Self::from(multiplier * multiplicant)
-    }
+
+    /// Creates a division. Simplifies if possible.
+    ///
+    /// ```rust
+    /// # use crem::Term;
+    /// assert_eq!(Term::div(2,6), Term::div(1,3));
+    /// assert_eq!(Term::div(4,2), Term::from(2));
+    /// assert_eq!(Term::div(1,2).calc(), 0.5);
+    /// ```
     pub fn div(divident: u32, divisor: u32) -> Self {
         Self::from(divident) / Self::from(divisor)
     }
@@ -35,6 +54,11 @@ fn f64_to_u32(value: f64) -> Result<u32, ()> {
 impl TryFrom<f64> for Term {
     type Error = ();
 
+    /// Converts a float to a fraction. For example: `1.1` will be converted to `11/10`.
+    ///
+    /// It's recommended to use `Term.div` instead. Converting from floats loses precision.
+    ///
+    /// Conversion can fail if resulting divident is greater than `u32::MAX`.
     fn try_from(mut value: f64) -> Result<Self, Self::Error> {
         if value == 0.0 {
             return Ok(Term::from(0u32));
@@ -80,6 +104,11 @@ fn f32_to_u32(value: f32) -> Result<u32, ()> {
 impl TryFrom<f32> for Term {
     type Error = ();
 
+    /// Converts a float to a fraction. For example: `1.1` will be converted to `11/10`.
+    ///
+    /// It's recommended to use `Term.div` instead. Converting from floats loses precision.
+    ///
+    /// Conversion can fail if resulting divident is greater than `u32::MAX`.
     fn try_from(mut value: f32) -> Result<Self, Self::Error> {
         if value == 0.0 {
             return Ok(Term::from(0u32));
@@ -111,6 +140,9 @@ impl TryFrom<f32> for Term {
 }
 
 impl From<u32> for Term {
+    /// Creates a Term consisting of only the number.
+    ///
+    /// Example: Entering `3` results in the term `3`.
     fn from(value: u32) -> Self {
         Term {
             operation: Operation::from(value),
@@ -119,20 +151,29 @@ impl From<u32> for Term {
 }
 
 impl From<u16> for Term {
+    /// Creates a Term consisting of only the number.
+    ///
+    /// Example: Entering `3` results in the term `3`.
     fn from(value: u16) -> Self {
         Term::from(u32::from(value))
     }
 }
 
 impl From<u8> for Term {
+    /// Creates a Term consisting of only the number.
+    ///
+    /// Example: Entering `3` results in the term `3`.
     fn from(value: u8) -> Self {
         Term::from(u32::from(value))
     }
 }
 
 impl From<i32> for Term {
+    /// Creates a Term consisting of only the number.
+    ///
+    /// Example: Entering `-3` results in the term `-3`.
     fn from(value: i32) -> Self {
-        if value < 0 {
+        if value.is_negative() {
             Term {
                 operation: -Operation::from(value.abs() as u32),
             }
@@ -145,18 +186,25 @@ impl From<i32> for Term {
 }
 
 impl From<i16> for Term {
+    /// Creates a Term consisting of only the number.
+    ///
+    /// Example: Entering `-3` results in the term `-3`.
     fn from(value: i16) -> Self {
         Term::from(i32::from(value))
     }
 }
 
 impl From<i8> for Term {
+    /// Creates a Term consisting of only the number.
+    ///
+    /// Example: Entering `-3` results in the term `-3`.
     fn from(value: i8) -> Self {
         Term::from(i32::from(value))
     }
 }
 
 impl Default for Term {
+    /// Returns the default Term: `0`
     fn default() -> Self {
         Term {
             operation: Operation::default(),

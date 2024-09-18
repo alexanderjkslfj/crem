@@ -67,6 +67,7 @@ mod tests {
     fn test_casting_floats() -> Result<(), ()> {
         assert_eq!(Term::try_from(1.0f32)?, Term::from(1));
         assert_eq!(Term::try_from(0.2f32)?, Term::div(2, 10));
+        assert_eq!(Term::try_from(1.1f32)?, Term::div(11, 10));
         assert_eq!(Term::try_from(1.2f32)?, Term::from(1) + Term::div(2, 10));
         assert_eq!(Term::try_from(-0f32)?, Term::from(0));
         assert_eq!(Term::try_from(-1.0f32)?, -Term::from(1));
@@ -75,6 +76,7 @@ mod tests {
 
         assert_eq!(Term::try_from(1.0f64)?, Term::from(1));
         assert_eq!(Term::try_from(0.2f64)?, Term::div(2, 10));
+        assert_eq!(Term::try_from(1.1f64)?, Term::div(11, 10));
         assert_eq!(Term::try_from(1.2f64)?, Term::from(1) + Term::div(2, 10));
         assert_eq!(Term::try_from(-0f64)?, Term::from(0));
         assert_eq!(Term::try_from(-1.0f64)?, -Term::from(1));
