@@ -289,6 +289,10 @@ trait SetVar {
     fn set_variable(&mut self, name: &str, value: &Operation);
 }
 
+trait CanAddNumWell {
+    fn can_add_number_well(&self) -> bool;
+}
+
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 enum Operation {
     Addition(Addition),
@@ -299,6 +303,19 @@ enum Operation {
     Variable(Variable),
 }
 
+impl CanAddNumWell for Operation {
+    fn can_add_number_well(&self) -> bool {
+        match self {
+            Operation::Addition(add) => add.can_add_number_well(),
+            Operation::Multiplication(mul) => mul.can_add_number_well(),
+            Operation::Division(div) => div.can_add_number_well(),
+            Operation::Negation(neg) => neg.can_add_number_well(),
+            Operation::Number(num) => num.can_add_number_well(),
+            Operation::Variable(var) => var.can_add_number_well(),
+        }
+    }
+}
+
 impl SetVar for Operation {
     fn set_variable(&mut self, name: &str, value: &Operation) {
         match self {
@@ -306,8 +323,8 @@ impl SetVar for Operation {
             Operation::Multiplication(mul) => mul.set_variable(name, value),
             Operation::Division(div) => div.set_variable(name, value),
             Operation::Negation(neg) => neg.set_variable(name, value),
-            // NOTE: match with default
-            _ => (),
+            Operation::Number(_) => (),
+            Operation::Variable(_) => (),
         }
     }
 }
@@ -320,7 +337,7 @@ impl Calc for Operation {
             Operation::Division(div) => div.calc(),
             Operation::Negation(inv) => inv.calc(),
             Operation::Number(num) => num.calc(),
-            Operation::Variable(_) => panic!("Cannot calculate result of term with variables."),
+            Operation::Variable(_) => panic!("Cannot calculate result of a term with variables."),
         }
     }
 }
@@ -352,6 +369,27 @@ impl Add for Operation {
             (Operation::Number(num), any) if (num.value == 0) => any,
             (any, Operation::Number(num)) if (num.value == 0) => any,
 
+            (Operation::Number(num), Operation::Addition(mut add)) => {
+                add.add_num(num);
+                Operation::Addition(add)
+            }
+            (Operation::Addition(mut add), Operation::Number(num)) => {
+                add.add_num(num);
+                Operation::Addition(add)
+            }
+
+            (Operation::Negation(neg), any) => any - (*neg.value),
+            (any, Operation::Negation(neg)) => any - (*neg.value),
+
+            (Operation::Addition(mut add), any) => {
+                add.summands.push(any);
+                Operation::Addition(add)
+            }
+            (any, Operation::Addition(mut add)) => {
+                add.summands.push(any);
+                Operation::Addition(add)
+            }
+
             // experimental
             (Operation::Division(div), any) => {
                 (any * (*div.divisor).clone() + (*div.divident)) / (*div.divisor)
@@ -359,9 +397,6 @@ impl Add for Operation {
             (any, Operation::Division(div)) => {
                 (any * (*div.divisor).clone() + (*div.divident)) / (*div.divisor)
             }
-
-            (Operation::Negation(neg), any) => any - (*neg.value),
-            (any, Operation::Negation(neg)) => any - (*neg.value),
 
             // NOTE: match with default
             (first, second) => Operation::Addition(Addition {
@@ -429,6 +464,15 @@ impl Mul for Operation {
             (any, Operation::Division(div)) => (any * (*div.divident)) / (*div.divisor),
             (Operation::Division(div), any) => (any * (*div.divident)) / (*div.divisor),
 
+            (Operation::Multiplication(mut mul), any) => {
+                mul.multipliers.push(any);
+                Operation::Multiplication(mul)
+            }
+            (any, Operation::Multiplication(mut mul)) => {
+                mul.multipliers.push(any);
+                Operation::Multiplication(mul)
+            }
+
             // NOTE: match with default
             (first, second) => Operation::Multiplication(Multiplication {
                 multipliers: vec![first, second],
@@ -486,6 +530,12 @@ impl Neg for Operation {
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
 struct Negation {
     pub value: Box<Operation>,
+}
+
+impl CanAddNumWell for Negation {
+    fn can_add_number_well(&self) -> bool {
+        self.value.can_add_number_well()
+    }
 }
 
 impl SetVar for Negation {
@@ -552,6 +602,30 @@ impl Neg for Negation {
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
 struct Addition {
     pub summands: Vec<Operation>,
+}
+
+impl Addition {
+    fn add_num(&mut self, num: Number) {
+        for i in 0..self.summands.len() {
+            if self.summands[i].can_add_number_well() {
+                let added_summand = self.summands.remove(i) + Operation::Number(num);
+                self.summands.insert(i, added_summand);
+                return;
+            }
+        }
+        self.summands.push(Operation::Number(num))
+    }
+}
+
+impl CanAddNumWell for Addition {
+    fn can_add_number_well(&self) -> bool {
+        for summand in &self.summands {
+            if summand.can_add_number_well() {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl SetVar for Addition {
@@ -637,6 +711,15 @@ impl Neg for Addition {
 struct Division {
     pub divident: Box<Operation>,
     pub divisor: Box<Operation>,
+}
+
+impl CanAddNumWell for Division {
+    fn can_add_number_well(&self) -> bool {
+        match *self.divisor {
+            Operation::Number(_) => self.divident.can_add_number_well(),
+            _ => false,
+        }
+    }
 }
 
 impl SetVar for Division {
@@ -731,6 +814,12 @@ impl Neg for Division {
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
 struct Multiplication {
     multipliers: Vec<Operation>,
+}
+
+impl CanAddNumWell for Multiplication {
+    fn can_add_number_well(&self) -> bool {
+        false
+    }
 }
 
 impl SetVar for Multiplication {
@@ -882,6 +971,12 @@ struct Number {
     value: u32,
 }
 
+impl CanAddNumWell for Number {
+    fn can_add_number_well(&self) -> bool {
+        true
+    }
+}
+
 impl From<u32> for Number {
     fn from(value: u32) -> Self {
         Number { value }
@@ -974,6 +1069,12 @@ fn greatest_common_divisor(a: u32, b: u32) -> u32 {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
 struct Variable {
     name: String,
+}
+
+impl CanAddNumWell for Variable {
+    fn can_add_number_well(&self) -> bool {
+        false
+    }
 }
 
 impl From<String> for Variable {
