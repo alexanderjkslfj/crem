@@ -44,7 +44,10 @@ mod tests {
         assert_eq!(Term::from(7) - Term::from(4), Term::from(3));
         assert_eq!(Term::from(0) - Term::from(0), Term::from(0));
         assert_eq!(Term::from(10) - 2.into() - 3.into() - 4.into(), 1.into());
-        assert_eq!(Term::from(1) - 2.into() - 3.into() - 4.into(), (-8i32).into());
+        assert_eq!(
+            Term::from(1) - 2.into() - 3.into() - 4.into(),
+            (-8i32).into()
+        );
         assert_eq!((Term::from(5) - Term::from(3)).calc(), 2.0);
         assert_eq!((Term::from(3) - Term::from(5)).calc(), -2.0);
     }
@@ -128,11 +131,35 @@ mod tests {
 
     #[test]
     fn test_nested_divisions() {
-        assert_eq!(Term::from(5) / (Term::from(1) / Term::from(2)), Term::from(10));
+        assert_eq!(
+            Term::from(5) / (Term::from(1) / Term::from(2)),
+            Term::from(10)
+        );
         assert_eq!(
             (Term::from(3) / Term::from(2)) / Term::from(2),
             Term::from(3) / Term::from(4)
         );
         assert_eq!(Term::div(3, 2) / Term::div(1, 4), Term::from(6));
+    }
+
+    #[test]
+    fn test_set_variable() {
+        {
+            let mut a = Term::new_variable("a");
+            a.set_variable("a", &Term::from(5));
+            assert_eq!(a, Term::from(5)); // check if simple variable setting works
+        }
+        {
+            let mut a = Term::new_variable("a");
+            a.set_variable("b", &Term::from(5));
+            assert_ne!(a, Term::from(5)); // check if setting wrong name fails
+        }
+        {
+            let mut term = Term::from(5)
+                + (Term::from(3) * (Term::from(4) / (Term::from(7) - Term::new_variable("x"))));
+            term.set_variable("x", &Term::from(5));
+            assert_eq!(term.calc(), 11.0); // check if deep variable setting works
+            assert_eq!(term, Term::from(11)); // check if deep variable setting simplifies correctly
+        }
     }
 }
