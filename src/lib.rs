@@ -28,20 +28,23 @@ impl Term {
 
     /// Replaces all matching variables with the given term.
     pub fn set_variable(&mut self, name: &str, term: &Term) {
-        match &mut self.operation {
-            Operation::Variable(var) => {
-                if var.name == name {
-                    self.operation = term.operation.clone();
-                }
-            }
-            any => any.set_variable(name, &term.operation),
-        }
+        self.operation = self.operation.set_vars(&[(name, &term.operation)]);
+    }
+
+    /// Replaces all matching variables with the given terms.
+    pub fn set_variables(&mut self, variables: &[(&str, &Term)]) {
+        let vars_as_ops: Vec<(&str, &Operation)> = variables
+            .iter()
+            .map(|var| (var.0, &var.1.operation))
+            .collect();
+
+        self.operation = self.operation.set_vars(&vars_as_ops)
     }
 
     /// Creates a new variable.
-    pub fn new_variable(name: String) -> Self {
+    pub fn new_variable(name: impl Into<String>) -> Self {
         Term {
-            operation: Operation::Variable(Variable::from(name)),
+            operation: Operation::Variable(Variable::from(name.into())),
         }
     }
 
@@ -285,8 +288,8 @@ trait Calc {
     fn calc(&self) -> f64;
 }
 
-trait SetVar {
-    fn set_variable(&mut self, name: &str, value: &Operation);
+trait SetVars {
+    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation;
 }
 
 trait CanAddNumWell {
@@ -316,15 +319,15 @@ impl CanAddNumWell for Operation {
     }
 }
 
-impl SetVar for Operation {
-    fn set_variable(&mut self, name: &str, value: &Operation) {
+impl SetVars for Operation {
+    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
         match self {
-            Operation::Addition(add) => add.set_variable(name, value),
-            Operation::Multiplication(mul) => mul.set_variable(name, value),
-            Operation::Division(div) => div.set_variable(name, value),
-            Operation::Negation(neg) => neg.set_variable(name, value),
-            Operation::Number(_) => (),
-            Operation::Variable(_) => (),
+            Operation::Addition(add) => add.set_vars(vars),
+            Operation::Multiplication(mul) => mul.set_vars(vars),
+            Operation::Division(div) => div.set_vars(vars),
+            Operation::Negation(neg) => neg.set_vars(vars),
+            Operation::Number(num) => num.set_vars(vars),
+            Operation::Variable(var) => var.set_vars(vars),
         }
     }
 }
@@ -538,16 +541,9 @@ impl CanAddNumWell for Negation {
     }
 }
 
-impl SetVar for Negation {
-    fn set_variable(&mut self, name: &str, value: &Operation) {
-        match &mut (*self.value) {
-            Operation::Variable(var) => {
-                if var.name == name {
-                    self.value = Box::new(value.clone())
-                }
-            }
-            any => any.set_variable(name, value),
-        }
+impl SetVars for Negation {
+    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+        -self.value.set_vars(vars)
     }
 }
 
@@ -609,7 +605,7 @@ impl Addition {
         for i in 0..self.summands.len() {
             if self.summands[i].can_add_number_well() {
                 let added_summand = self.summands.remove(i) + Operation::Number(num);
-                self.summands.insert(i, added_summand);
+                self.summands.push(added_summand);
                 return;
             }
         }
@@ -628,18 +624,11 @@ impl CanAddNumWell for Addition {
     }
 }
 
-impl SetVar for Addition {
-    fn set_variable(&mut self, name: &str, value: &Operation) {
-        for i in 0..self.summands.len() {
-            match &mut self.summands[i] {
-                Operation::Variable(var) => {
-                    if var.name == name {
-                        self.summands[i] = value.clone()
-                    }
-                }
-                any => any.set_variable(name, value),
-            }
-        }
+impl SetVars for Addition {
+    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+        self.summands
+            .iter()
+            .fold(Operation::from(0u32), |acc, op| acc + op.set_vars(vars))
     }
 }
 
@@ -722,24 +711,9 @@ impl CanAddNumWell for Division {
     }
 }
 
-impl SetVar for Division {
-    fn set_variable(&mut self, name: &str, value: &Operation) {
-        match &mut *self.divident {
-            Operation::Variable(var) => {
-                if var.name == name {
-                    self.divident = Box::new(value.clone())
-                }
-            }
-            any => any.set_variable(name, value),
-        }
-        match &mut *self.divisor {
-            Operation::Variable(var) => {
-                if var.name == name {
-                    self.divisor = Box::new(value.clone())
-                }
-            }
-            any => any.set_variable(name, value),
-        }
+impl SetVars for Division {
+    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+        self.divident.set_vars(vars) / self.divisor.set_vars(vars)
     }
 }
 
@@ -822,18 +796,11 @@ impl CanAddNumWell for Multiplication {
     }
 }
 
-impl SetVar for Multiplication {
-    fn set_variable(&mut self, name: &str, value: &Operation) {
-        for i in 0..self.multipliers.len() {
-            match &mut self.multipliers[i] {
-                Operation::Variable(var) => {
-                    if var.name == name {
-                        self.multipliers[i] = value.clone()
-                    }
-                }
-                any => any.set_variable(name, value),
-            }
-        }
+impl SetVars for Multiplication {
+    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+        self.multipliers
+            .iter()
+            .fold(Operation::from(1u32), |acc, op| acc * op.set_vars(vars))
     }
 }
 
@@ -977,6 +944,12 @@ impl CanAddNumWell for Number {
     }
 }
 
+impl SetVars for Number {
+    fn set_vars(&self, _vars: &[(&str, &Operation)]) -> Operation {
+        Operation::Number(self.clone())
+    }
+}
+
 impl From<u32> for Number {
     fn from(value: u32) -> Self {
         Number { value }
@@ -1074,6 +1047,17 @@ struct Variable {
 impl CanAddNumWell for Variable {
     fn can_add_number_well(&self) -> bool {
         false
+    }
+}
+
+impl SetVars for Variable {
+    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+        for var in vars {
+            if self.name == var.0 {
+                return var.1.clone();
+            }
+        }
+        Operation::Variable(self.clone())
     }
 }
 
