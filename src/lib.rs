@@ -3,7 +3,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// A mathematical term.
 ///
@@ -234,6 +234,12 @@ impl Default for Term {
     }
 }
 
+impl AddAssign for Term {
+    fn add_assign(&mut self, rhs: Self) {
+        self.operation = std::mem::take(&mut self.operation) + rhs.operation;
+    }
+}
+
 impl Add for Term {
     type Output = Term;
 
@@ -241,6 +247,12 @@ impl Add for Term {
         Term {
             operation: self.operation + rhs.operation,
         }
+    }
+}
+
+impl SubAssign for Term {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.operation = std::mem::take(&mut self.operation) - rhs.operation;
     }
 }
 
@@ -254,6 +266,12 @@ impl Sub for Term {
     }
 }
 
+impl MulAssign for Term {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.operation = std::mem::take(&mut self.operation) * rhs.operation;
+    }
+}
+
 impl Mul for Term {
     type Output = Term;
 
@@ -261,6 +279,12 @@ impl Mul for Term {
         Term {
             operation: self.operation * rhs.operation,
         }
+    }
+}
+
+impl DivAssign for Term {
+    fn div_assign(&mut self, rhs: Self) {
+        self.operation = std::mem::take(&mut self.operation) / rhs.operation;
     }
 }
 

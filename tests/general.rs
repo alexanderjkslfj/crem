@@ -67,6 +67,30 @@ mod tests {
     }
 
     #[test]
+    fn test_assign() {
+        {
+            let mut a = Term::from(3);
+            a += Term::from(4);
+            assert_eq!(a, Term::from(7));
+        }
+        {
+            let mut a = Term::from(3);
+            a -= Term::from(4);
+            assert_eq!(a, Term::from(-1));
+        }
+        {
+            let mut a = Term::from(3);
+            a *= Term::from(4);
+            assert_eq!(a, Term::from(12));
+        }
+        {
+            let mut a = Term::from(8);
+            a /= Term::from(2);
+            assert_eq!(a, Term::from(4));
+        }
+    }
+
+    #[test]
     fn test_casting_floats() -> Result<(), ()> {
         assert_eq!(Term::try_from(1.0f32)?, Term::from(1));
         assert_eq!(Term::try_from(0.2f32)?, Term::div(2, 10));
