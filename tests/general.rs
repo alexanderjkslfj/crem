@@ -91,29 +91,6 @@ mod tests {
     }
 
     #[test]
-    fn test_casting_floats() -> Result<(), ()> {
-        assert_eq!(Term::try_from(1.0f32)?, Term::from(1));
-        assert_eq!(Term::try_from(0.2f32)?, Term::div(2, 10));
-        assert_eq!(Term::try_from(1.1f32)?, Term::div(11, 10));
-        assert_eq!(Term::try_from(1.2f32)?, Term::from(1) + Term::div(2, 10));
-        assert_eq!(Term::try_from(-0f32)?, Term::from(0));
-        assert_eq!(Term::try_from(-1.0f32)?, -Term::from(1));
-        assert_eq!(Term::try_from(-0.2f32)?, -Term::div(2, 10));
-        assert_eq!(Term::try_from(-1.2f32)?, -Term::from(1) - Term::div(2, 10));
-
-        assert_eq!(Term::try_from(1.0f64)?, Term::from(1));
-        assert_eq!(Term::try_from(0.2f64)?, Term::div(2, 10));
-        assert_eq!(Term::try_from(1.1f64)?, Term::div(11, 10));
-        assert_eq!(Term::try_from(1.2f64)?, Term::from(1) + Term::div(2, 10));
-        assert_eq!(Term::try_from(-0f64)?, Term::from(0));
-        assert_eq!(Term::try_from(-1.0f64)?, -Term::from(1));
-        assert_eq!(Term::try_from(-0.2f64)?, -Term::div(2, 10));
-        assert_eq!(Term::try_from(-1.2f64)?, -Term::from(1) - Term::div(2, 10));
-
-        Ok(())
-    }
-
-    #[test]
     fn test_adding_multiplications() {
         assert_eq!(
             (Term::from(3) * Term::from(6)) + (Term::from(2) * Term::from(5)),
@@ -193,7 +170,7 @@ mod tests {
         assert_eq!(Term::try_from("3 + 4").unwrap(), Term::from(7));
         assert_eq!(
             Term::try_from("0.1 + 0.2").unwrap(),
-            Term::try_from(0.3).unwrap()
+            Term::try_from("3 / 10").unwrap()
         );
         assert_eq!(Term::try_from("10 + 8 / 2").unwrap(), Term::from(14));
         assert_eq!(Term::try_from("5+3*3+5").unwrap(), Term::from(19));

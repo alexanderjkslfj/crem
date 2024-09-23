@@ -14,10 +14,10 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 /// The term is simplified before being calculated, minimizing precision loss.
 ///
 /// ```rust
-/// # use crem::Term;
+/// # use crem::*;
 /// assert_ne!(0.1 + 0.2, 0.3);
-/// assert_eq!((Term::try_from(0.1)? + Term::try_from(0.2)?).calc(), 0.3);
-/// # Ok::<(), ()>(())
+/// assert_eq!(Term::try_from("0.1 + 0.2")?.calc(), 0.3);
+/// # Ok::<(), TryFromStrError>(())
 /// ```
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct Term {
@@ -116,106 +116,6 @@ impl TryFrom<&str> for Term {
     /// ```
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         parse_string(value)
-    }
-}
-
-const MAX_U32_AS_F64: f64 = u32::MAX as f64;
-
-fn f64_to_u32(value: f64) -> Result<u32, ()> {
-    if value.fract() != 0.0 {
-        return Err(());
-    }
-    if value > MAX_U32_AS_F64 {
-        return Err(());
-    }
-    Ok(value as u32)
-}
-
-impl TryFrom<f64> for Term {
-    type Error = ();
-
-    /// Converts a float to a fraction. For example: `1.1` will be converted to `11/10`.
-    ///
-    /// It's recommended to use a string instead, for example `Term::try_from("1.1")`. Converting from floats loses precision.
-    ///
-    /// Conversion can fail if resulting divident is greater than `u32::MAX`.
-    fn try_from(mut value: f64) -> Result<Self, Self::Error> {
-        if value == 0.0 {
-            return Ok(Term::from(0u32));
-        }
-
-        let invert = value.is_sign_negative();
-        if invert {
-            value = -value;
-        }
-
-        let mut exponent = 0;
-
-        loop {
-            let offset = 10.0f64.powi(exponent);
-
-            let raised = value * offset;
-
-            if raised == raised.trunc() {
-                if invert {
-                    return Ok(-Term::div(f64_to_u32(raised)?, offset as u32));
-                } else {
-                    return Ok(Term::div(f64_to_u32(raised)?, offset as u32));
-                }
-            }
-
-            exponent += 1;
-        }
-    }
-}
-
-const MAX_U32_AS_F32: f32 = u32::MAX as f32;
-
-fn f32_to_u32(value: f32) -> Result<u32, ()> {
-    if value.fract() != 0.0 {
-        return Err(());
-    }
-    if value > MAX_U32_AS_F32 {
-        return Err(());
-    }
-    Ok(value as u32)
-}
-
-impl TryFrom<f32> for Term {
-    type Error = ();
-
-    /// Converts a float to a fraction. For example: `1.1` will be converted to `11/10`.
-    ///
-    /// It's recommended to use string instead, for example `Term::try_from("1.1")`. Converting from floats loses precision.
-    ///
-    /// Conversion can fail if resulting divident is greater than `u32::MAX`.
-    fn try_from(mut value: f32) -> Result<Self, Self::Error> {
-        if value == 0.0 {
-            return Ok(Term::from(0u32));
-        }
-
-        let invert = value.is_sign_negative();
-        if invert {
-            value = -value;
-        }
-
-        let mut exponent = 0;
-
-        loop {
-            let offset = 10.0f32.powi(exponent);
-
-            let raised = value * offset;
-
-            if raised == raised.trunc() {
-                if invert {
-                    return Ok(-Term::div(f32_to_u32(raised)?, offset as u32));
-                } else {
-                    return Ok(Term::div(f32_to_u32(raised)?, offset as u32));
-                }
-            }
-
-            exponent += 1;
-        }
     }
 }
 
