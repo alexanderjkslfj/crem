@@ -6,7 +6,7 @@
 mod parse_string;
 
 use parse_string::parse_string;
-pub use parse_string::ParsingError;
+pub use parse_string::TryFromStrError;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// A mathematical term.
@@ -65,6 +65,60 @@ impl Term {
     }
 }
 
+impl TryFrom<String> for Term {
+    type Error = TryFromStrError;
+
+    /// Performs the conversion.
+    ///
+    /// ```rust
+    /// # use crem::*;
+    /// assert_eq!(Term::try_from("7")?, Term::from(7));
+    /// assert_eq!(Term::try_from("8 / 2")?, Term::from(4));
+    /// assert_eq!(Term::try_from("1.3 + 3.7")?, Term::from(5));
+    /// assert_eq!(Term::try_from("3(8-8/2)")?, Term::from(12));
+    /// # Ok::<(), TryFromStrError>(())
+    /// ```
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Term::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&String> for Term {
+    type Error = TryFromStrError;
+
+    /// Performs the conversion.
+    ///
+    /// ```rust
+    /// # use crem::*;
+    /// assert_eq!(Term::try_from("7")?, Term::from(7));
+    /// assert_eq!(Term::try_from("8 / 2")?, Term::from(4));
+    /// assert_eq!(Term::try_from("1.3 + 3.7")?, Term::from(5));
+    /// assert_eq!(Term::try_from("3(8-8/2)")?, Term::from(12));
+    /// # Ok::<(), TryFromStrError>(())
+    /// ```
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Term::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&str> for Term {
+    type Error = TryFromStrError;
+
+    /// Performs the conversion.
+    ///
+    /// ```rust
+    /// # use crem::*;
+    /// assert_eq!(Term::try_from("7")?, Term::from(7));
+    /// assert_eq!(Term::try_from("8 / 2")?, Term::from(4));
+    /// assert_eq!(Term::try_from("1.3 + 3.7")?, Term::from(5));
+    /// assert_eq!(Term::try_from("3(8-8/2)")?, Term::from(12));
+    /// # Ok::<(), TryFromStrError>(())
+    /// ```
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        parse_string(value)
+    }
+}
+
 const MAX_U32_AS_F64: f64 = u32::MAX as f64;
 
 fn f64_to_u32(value: f64) -> Result<u32, ()> {
@@ -77,36 +131,12 @@ fn f64_to_u32(value: f64) -> Result<u32, ()> {
     Ok(value as u32)
 }
 
-impl TryFrom<String> for Term {
-    type Error = ParsingError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Term::try_from(value.as_str())
-    }
-}
-
-impl TryFrom<&String> for Term {
-    type Error = ParsingError;
-
-    fn try_from(value: &String) -> Result<Self, Self::Error> {
-        Term::try_from(value.as_str())
-    }
-}
-
-impl TryFrom<&str> for Term {
-    type Error = ParsingError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        parse_string(value)
-    }
-}
-
 impl TryFrom<f64> for Term {
     type Error = ();
 
     /// Converts a float to a fraction. For example: `1.1` will be converted to `11/10`.
     ///
-    /// It's recommended to use `Term.div` instead. Converting from floats loses precision.
+    /// It's recommended to use a string instead, for example `Term::try_from("1.1")`. Converting from floats loses precision.
     ///
     /// Conversion can fail if resulting divident is greater than `u32::MAX`.
     fn try_from(mut value: f64) -> Result<Self, Self::Error> {
@@ -156,7 +186,7 @@ impl TryFrom<f32> for Term {
 
     /// Converts a float to a fraction. For example: `1.1` will be converted to `11/10`.
     ///
-    /// It's recommended to use `Term.div` instead. Converting from floats loses precision.
+    /// It's recommended to use string instead, for example `Term::try_from("1.1")`. Converting from floats loses precision.
     ///
     /// Conversion can fail if resulting divident is greater than `u32::MAX`.
     fn try_from(mut value: f32) -> Result<Self, Self::Error> {

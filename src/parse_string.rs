@@ -2,16 +2,19 @@ use crate::Term;
 
 /// Error when creating a term from a string
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ParsingError {
+pub enum TryFromStrError {
     /// An illegal character was encountered
     UnexpectedCharacter(char),
     /// The EOF was reached while some operations or brackets were still open
     UnexpectedEof,
 }
 
-pub fn parse_string(value: &str) -> Result<Term, ParsingError> {
+pub fn parse_string(value: &str) -> Result<Term, TryFromStrError> {
+    // converts "5 + (3*3) * -3" to [Term, '+', Term, '*', '-', Term]
     let mut flat = parse_to_flat(value)?;
+    // converts [Term, '+', Term, '*', '-', Term] to [Term, '+', Term, '*', Term]
     remove_minuses(&mut flat);
+    // converts [Term, '+', Term, '*', Term] to Term
     Ok(fold_flat(flat))
 }
 
@@ -84,7 +87,7 @@ fn remove_minuses(input: &mut Vec<Result<Term, char>>) {
     }
 }
 
-fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, ParsingError> {
+fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, TryFromStrError> {
     let mut outputs = Vec::new();
 
     enum States {
@@ -100,7 +103,6 @@ fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, ParsingError> {
     for char in value.chars() {
         match state {
             States::Start => match char {
-                ' ' => (),
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                     state = States::PreComma(String::from(char));
                 }
@@ -114,10 +116,10 @@ fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, ParsingError> {
                 '(' => {
                     state = States::Brackets(1, String::new());
                 }
-                any => return Err(ParsingError::UnexpectedCharacter(any)),
+                any if any.is_whitespace() => (),
+                any => return Err(TryFromStrError::UnexpectedCharacter(any)),
             },
             States::PostTerm => match char {
-                ' ' => (),
                 '+' | '-' | '*' | '/' => {
                     outputs.push(Err(char));
                     state = States::PostOp;
@@ -126,10 +128,10 @@ fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, ParsingError> {
                     outputs.push(Err('*'));
                     state = States::Brackets(1, String::new());
                 }
-                any => return Err(ParsingError::UnexpectedCharacter(any)),
+                any if any.is_whitespace() => (),
+                any => return Err(TryFromStrError::UnexpectedCharacter(any)),
             },
             States::PostOp => match char {
-                ' ' => (),
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                     state = States::PreComma(String::from(char));
                 }
@@ -142,16 +144,10 @@ fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, ParsingError> {
                 '(' => {
                     state = States::Brackets(1, String::new());
                 }
-                any => return Err(ParsingError::UnexpectedCharacter(any)),
+                any if any.is_whitespace() => (),
+                any => return Err(TryFromStrError::UnexpectedCharacter(any)),
             },
             States::PreComma(mut buffer) => match char {
-                ' ' => {
-                    let Ok(parsed_buffer) = buffer.parse::<u32>() else {
-                        panic!("Internal library error.");
-                    };
-                    outputs.push(Ok(Term::from(parsed_buffer)));
-                    state = States::PostTerm;
-                }
                 '.' => {
                     let Ok(parsed_buffer) = buffer.parse::<u32>() else {
                         panic!("Internal library error.");
@@ -178,18 +174,17 @@ fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, ParsingError> {
                     outputs.push(Err(char));
                     state = States::PostOp;
                 }
-                any => return Err(ParsingError::UnexpectedCharacter(any)),
+                any if any.is_whitespace() => {
+                    let Ok(parsed_buffer) = buffer.parse::<u32>() else {
+                        panic!("Internal library error.");
+                    };
+                    outputs.push(Ok(Term::from(parsed_buffer)));
+                    state = States::PostTerm;
+                }
+                any => return Err(TryFromStrError::UnexpectedCharacter(any)),
             },
             States::PostComma(pre, mut buffer) => {
                 match char {
-                    ' ' => {
-                        let Ok(parsed_buffer) = buffer.parse::<u32>() else {
-                            panic!("Internal library error.");
-                        };
-                        outputs.push(Ok(Term::from(pre)
-                            + Term::div(parsed_buffer, 10u32.pow(buffer.len() as u32))));
-                        state = States::PostTerm;
-                    }
                     '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                         buffer.push(char);
                         state = States::PostComma(pre, buffer);
@@ -212,7 +207,15 @@ fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, ParsingError> {
                         outputs.push(Err(char));
                         state = States::PostOp;
                     }
-                    any => return Err(ParsingError::UnexpectedCharacter(any)),
+                    any if any.is_whitespace() => {
+                        let Ok(parsed_buffer) = buffer.parse::<u32>() else {
+                            panic!("Internal library error.");
+                        };
+                        outputs.push(Ok(Term::from(pre)
+                            + Term::div(parsed_buffer, 10u32.pow(buffer.len() as u32))));
+                        state = States::PostTerm;
+                    }
+                    any => return Err(TryFromStrError::UnexpectedCharacter(any)),
                 }
             }
             States::Brackets(depth, mut buffer) => match char {
@@ -239,7 +242,7 @@ fn parse_to_flat(value: &str) -> Result<Vec<Result<Term, char>>, ParsingError> {
 
     match state {
         States::Brackets(_, _) | States::PostOp | States::Start => {
-            return Err(ParsingError::UnexpectedEof)
+            return Err(TryFromStrError::UnexpectedEof)
         }
         States::PostComma(pre, buffer) => {
             let Ok(parsed_buffer) = buffer.parse::<u32>() else {
