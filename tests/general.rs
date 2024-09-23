@@ -186,4 +186,19 @@ mod tests {
             assert_eq!(term, Term::from(11)); // check if deep variable setting simplifies correctly
         }
     }
+
+    #[test]
+    fn test_from_str() {
+        assert_eq!(Term::try_from("5").unwrap(), Term::from(5));
+        assert_eq!(Term::try_from("3 + 4").unwrap(), Term::from(7));
+        assert_eq!(
+            Term::try_from("0.1 + 0.2").unwrap(),
+            Term::try_from(0.3).unwrap()
+        );
+        assert_eq!(Term::try_from("10 + 8 / 2").unwrap(), Term::from(14));
+        assert_eq!(Term::try_from("5+3*3+5").unwrap(), Term::from(19));
+        assert_eq!(Term::try_from("3(4+5)").unwrap(), Term::from(27));
+        assert_eq!(Term::try_from("8*----2").unwrap(), Term::from(16));
+        assert_eq!(Term::try_from("8*-----2").unwrap(), Term::from(-16));
+    }
 }

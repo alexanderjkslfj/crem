@@ -3,6 +3,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+mod parse_string;
+
+use parse_string::parse_string;
+pub use parse_string::ParsingError;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// A mathematical term.
@@ -71,6 +75,30 @@ fn f64_to_u32(value: f64) -> Result<u32, ()> {
         return Err(());
     }
     Ok(value as u32)
+}
+
+impl TryFrom<String> for Term {
+    type Error = ParsingError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Term::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&String> for Term {
+    type Error = ParsingError;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Term::try_from(value.as_str())
+    }
+}
+
+impl TryFrom<&str> for Term {
+    type Error = ParsingError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        parse_string(value)
+    }
 }
 
 impl TryFrom<f64> for Term {
