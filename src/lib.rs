@@ -47,6 +47,25 @@ impl<
             + PartialOrd,
     > Term<Num>
 {
+    /// Converts the internal number type.
+    pub fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Term<T> {
+        Term {
+            operation: self.operation.convert(),
+        }
+    }
+
     /// Calculates the result of the term.
     pub fn calc<
         Output: Add<Output = Output>
@@ -351,6 +370,32 @@ impl<
     }
 }
 
+trait Convert<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+>
+{
+    fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Operation<T>;
+}
+
 trait Calc<
     Num: Add<Output = Num>
         + Sub<Output = Num>
@@ -409,6 +454,41 @@ enum Operation<
     Negation(Negation<Num>),
     Number(Number<Num>),
     Variable(Variable<Num>),
+}
+
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Convert<Num> for Operation<Num>
+{
+    fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Operation<T> {
+        match self {
+            Self::Addition(add) => add.convert(),
+            Self::Multiplication(mul) => mul.convert(),
+            Self::Division(div) => div.convert(),
+            Self::Negation(neg) => neg.convert(),
+            Self::Number(num) => num.convert(),
+            Self::Variable(var) => var.convert(),
+        }
+    }
 }
 
 impl<
@@ -769,6 +849,36 @@ impl<
             + Clone
             + Default
             + PartialOrd,
+    > Convert<Num> for Negation<Num>
+{
+    fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Operation<T> {
+        Operation::Negation(Negation {
+            value: Box::new(self.value.convert()),
+        })
+    }
+}
+
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
     > CanAddNumWell for Negation<Num>
 {
     fn can_add_number_well(&self) -> bool {
@@ -921,6 +1031,40 @@ struct Addition<
         + PartialOrd,
 > {
     pub summands: Vec<Operation<Num>>,
+}
+
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Convert<Num> for Addition<Num>
+{
+    fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Operation<T> {
+        Operation::Addition(Addition {
+            summands: self
+                .summands
+                .into_iter()
+                .map(|summand| summand.convert())
+                .collect(),
+        })
+    }
 }
 
 impl<
@@ -1148,6 +1292,37 @@ impl<
             + Clone
             + Default
             + PartialOrd,
+    > Convert<Num> for Division<Num>
+{
+    fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Operation<T> {
+        Operation::Division(Division {
+            divident: Box::new(self.divident.convert()),
+            divisor: Box::new(self.divisor.convert()),
+        })
+    }
+}
+
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
     > CanAddNumWell for Division<Num>
 {
     fn can_add_number_well(&self) -> bool {
@@ -1323,6 +1498,40 @@ struct Multiplication<
         + PartialOrd,
 > {
     multipliers: Vec<Operation<Num>>,
+}
+
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Convert<Num> for Multiplication<Num>
+{
+    fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Operation<T> {
+        Operation::Multiplication(Multiplication {
+            multipliers: self
+                .multipliers
+                .into_iter()
+                .map(|multiplier| multiplier.convert())
+                .collect(),
+        })
+    }
 }
 
 impl<
@@ -1584,6 +1793,36 @@ impl<
             + Clone
             + Default
             + PartialOrd,
+    > Convert<Num> for Number<Num>
+{
+    fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Operation<T> {
+        Operation::Number(Number {
+            value: T::from(self.value),
+        })
+    }
+}
+
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
     > CanAddNumWell for Number<Num>
 {
     fn can_add_number_well(&self) -> bool {
@@ -1770,6 +2009,37 @@ struct Variable<
 > {
     phantom: PhantomData<Num>,
     name: String,
+}
+
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Convert<Num> for Variable<Num>
+{
+    fn convert<
+        T: Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + Clone
+            + Default
+            + PartialOrd
+            + From<Num>,
+    >(
+        self,
+    ) -> Operation<T> {
+        Operation::Variable(Variable {
+            phantom: PhantomData::default(),
+            name: self.name,
+        })
+    }
 }
 
 impl<

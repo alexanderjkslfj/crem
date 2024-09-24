@@ -164,4 +164,10 @@ mod tests {
         assert_eq!(Term::try_from("8*----2").unwrap(), Term::from(16));
         assert_eq!(Term::try_from("8*-----2").unwrap(), -Term::from(16));
     }
+
+    #[test]
+    fn test_convert() {
+        assert_eq!(Term::from(3i64), Term::from(3u32).convert());
+        assert_ne!(Term::from(2i64), Term::from(3u32).convert());
+    }
 }
