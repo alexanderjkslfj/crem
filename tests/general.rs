@@ -6,28 +6,14 @@ mod tests {
     fn test_integers() {
         assert_eq!(Term::from(3), Term::from(3));
         assert_ne!(Term::from(2), Term::from(4));
-        assert_eq!(Term::from(3).calc(), 3.0);
-    }
-
-    #[test]
-    fn test_integer_variations() {
-        assert_eq!(Term::from(3u32), Term::from(3u16));
-        assert_eq!(Term::from(3u32), Term::from(3u8));
-        assert_eq!(Term::from(3i32), Term::from(3i16));
-        assert_eq!(Term::from(3i32), Term::from(3i8));
-        assert_eq!(Term::from(3i32), Term::from(3u16));
-        assert_eq!(Term::from(3i32), Term::from(3u8));
-        assert_eq!(Term::from(-3i32), Term::from(-3i16));
-        assert_eq!(Term::from(-3i32), Term::from(-3i8));
-        assert_ne!(Term::from(-3i32), Term::from(3i32));
+        assert_eq!(Term::from(3).calc::<f64>(), 3.0);
     }
 
     #[test]
     fn test_negation() {
-        assert_ne!(Term::from(3), Term::from(-3));
-        assert_eq!(Term::from(0), Term::from(-0));
-        assert_eq!(-Term::from(3), Term::from(-3));
-        assert_eq!(Term::from(-3).calc(), -3.0);
+        assert_ne!(-Term::from(3), Term::from(3));
+        assert_eq!((-Term::from(3)).calc::<f64>(), -3.0);
+        assert_eq!(Term::from(-3).calc::<f64>(), -3.0);
     }
 
     #[test]
@@ -35,7 +21,7 @@ mod tests {
         assert_eq!(Term::from(4) + Term::from(3), Term::from(7));
         assert_eq!(Term::from(0) + Term::from(0), Term::from(0));
         assert_eq!(Term::from(1) + 2.into() + 3.into() + 4.into(), 10.into());
-        assert_eq!((Term::from(1) + Term::from(2)).calc(), 3.0);
+        assert_eq!((Term::from(1) + Term::from(2)).calc::<f64>(), 3.0);
         assert_eq!(Term::from(5) + Term::from(-3), Term::from(2));
     }
 
@@ -46,17 +32,17 @@ mod tests {
         assert_eq!(Term::from(10) - 2.into() - 3.into() - 4.into(), 1.into());
         assert_eq!(
             Term::from(1) - 2.into() - 3.into() - 4.into(),
-            (-8i32).into()
+            -Term::from(8)
         );
-        assert_eq!((Term::from(5) - Term::from(3)).calc(), 2.0);
-        assert_eq!((Term::from(3) - Term::from(5)).calc(), -2.0);
+        assert_eq!((Term::from(5) - Term::from(3)).calc::<f64>(), 2.0);
+        assert_eq!((Term::from(3) - Term::from(5)).calc::<f64>(), -2.0);
     }
 
     #[test]
     fn test_division() {
         assert_eq!(Term::div(3, 6), Term::div(1, 2));
-        assert_eq!(Term::div(3, 6).calc(), Term::div(1, 2).calc());
-        assert_eq!(Term::div(3, 10).calc(), 0.3);
+        assert_eq!(Term::div(3, 6).calc::<f64>(), Term::div(1, 2).calc::<f64>());
+        assert_eq!(Term::div(3, 10).calc::<f64>(), 0.3);
     }
 
     #[test]
@@ -76,7 +62,7 @@ mod tests {
         {
             let mut a = Term::from(3);
             a -= Term::from(4);
-            assert_eq!(a, Term::from(-1));
+            assert_eq!(a, -Term::from(1));
         }
         {
             let mut a = Term::from(3);
@@ -111,8 +97,8 @@ mod tests {
         assert_eq!(Term::div(1, 10) + Term::div(2, 10), Term::div(3, 10));
         // assert_eq!(0.1 + 0.2, 0.3) would panic
         assert_eq!(
-            (Term::div(1, 10) + Term::div(2, 10)).calc(),
-            Term::div(3, 10).calc()
+            (Term::div(1, 10) + Term::div(2, 10)).calc::<f64>(),
+            Term::div(3, 10).calc::<f64>()
         );
         assert_eq!(Term::div(2, 3) + Term::div(1, 6), Term::div(5, 6));
         assert_eq!(Term::div(1, 3) + Term::div(2, 3), Term::from(1));
@@ -159,7 +145,7 @@ mod tests {
             let mut term = Term::from(5)
                 + (Term::from(3) * (Term::from(4) / (Term::from(7) - Term::new_variable("x"))));
             term.set_variable("x", &Term::from(5));
-            assert_eq!(term.calc(), 11.0); // check if deep variable setting works
+            assert_eq!(term.calc::<f64>(), 11.0); // check if deep variable setting works
             assert_eq!(term, Term::from(11)); // check if deep variable setting simplifies correctly
         }
     }
@@ -176,6 +162,6 @@ mod tests {
         assert_eq!(Term::try_from("5+3*3+5").unwrap(), Term::from(19));
         assert_eq!(Term::try_from("3(4+5)").unwrap(), Term::from(27));
         assert_eq!(Term::try_from("8*----2").unwrap(), Term::from(16));
-        assert_eq!(Term::try_from("8*-----2").unwrap(), Term::from(-16));
+        assert_eq!(Term::try_from("8*-----2").unwrap(), -Term::from(16));
     }
 }

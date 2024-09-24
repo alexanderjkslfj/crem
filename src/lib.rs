@@ -7,7 +7,10 @@ mod parse_string;
 
 use parse_string::parse_string;
 pub use parse_string::TryFromStrError;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::{
+    marker::PhantomData,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
+};
 
 /// A mathematical term.
 ///
@@ -16,28 +19,56 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 /// ```rust
 /// # use crem::*;
 /// assert_ne!(0.1 + 0.2, 0.3);
-/// assert_eq!(Term::try_from("0.1 + 0.2")?.calc(), 0.3);
+/// assert_eq!(Term::try_from("0.1 + 0.2")?.calc::<f64>(), 0.3);
 /// # Ok::<(), TryFromStrError>(())
 /// ```
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
-pub struct Term {
-    operation: Operation,
+pub struct Term<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+> {
+    operation: Operation<Num>,
 }
 
-impl Term {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Term<Num>
+{
     /// Calculates the result of the term.
-    pub fn calc(&self) -> f64 {
+    pub fn calc<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+    ) -> Output {
         self.operation.calc()
     }
 
     /// Replaces all matching variables with the given term.
-    pub fn set_variable(&mut self, name: &str, term: &Term) {
+    pub fn set_variable(&mut self, name: &str, term: &Term<Num>) {
         self.operation = self.operation.set_vars(&[(name, &term.operation)]);
     }
 
     /// Replaces all matching variables with the given terms.
-    pub fn set_variables(&mut self, variables: &[(&str, &Term)]) {
-        let vars_as_ops: Vec<(&str, &Operation)> = variables
+    pub fn set_variables(&mut self, variables: &[(&str, &Term<Num>)]) {
+        let vars_as_ops: Vec<(&str, &Operation<Num>)> = variables
             .iter()
             .map(|var| (var.0, &var.1.operation))
             .collect();
@@ -58,14 +89,32 @@ impl Term {
     /// # use crem::Term;
     /// assert_eq!(Term::div(2,6), Term::div(1,3));
     /// assert_eq!(Term::div(4,2), Term::from(2));
-    /// assert_eq!(Term::div(1,2).calc(), 0.5);
+    /// assert_eq!(Term::div(1,2).calc::<f64>(), 0.5);
     /// ```
-    pub fn div(divident: u32, divisor: u32) -> Self {
+    pub fn div(divident: Num, divisor: Num) -> Self {
         Self::from(divident) / Self::from(divisor)
     }
 }
 
-impl TryFrom<String> for Term {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > From<Num> for Term<Num>
+{
+    fn from(value: Num) -> Self {
+        Term {
+            operation: Operation::from(value),
+        }
+    }
+}
+
+impl TryFrom<String> for Term<u32> {
     type Error = TryFromStrError;
 
     /// Performs the conversion.
@@ -83,7 +132,7 @@ impl TryFrom<String> for Term {
     }
 }
 
-impl TryFrom<&String> for Term {
+impl TryFrom<&String> for Term<u32> {
     type Error = TryFromStrError;
 
     /// Performs the conversion.
@@ -101,7 +150,7 @@ impl TryFrom<&String> for Term {
     }
 }
 
-impl TryFrom<&str> for Term {
+impl TryFrom<&str> for Term<u32> {
     type Error = TryFromStrError;
 
     /// Performs the conversion.
@@ -119,71 +168,17 @@ impl TryFrom<&str> for Term {
     }
 }
 
-impl From<u32> for Term {
-    /// Creates a Term consisting of only the number.
-    ///
-    /// Example: Entering `3` results in the term `3`.
-    fn from(value: u32) -> Self {
-        Term {
-            operation: Operation::from(value),
-        }
-    }
-}
-
-impl From<u16> for Term {
-    /// Creates a Term consisting of only the number.
-    ///
-    /// Example: Entering `3` results in the term `3`.
-    fn from(value: u16) -> Self {
-        Term::from(u32::from(value))
-    }
-}
-
-impl From<u8> for Term {
-    /// Creates a Term consisting of only the number.
-    ///
-    /// Example: Entering `3` results in the term `3`.
-    fn from(value: u8) -> Self {
-        Term::from(u32::from(value))
-    }
-}
-
-impl From<i32> for Term {
-    /// Creates a Term consisting of only the number.
-    ///
-    /// Example: Entering `-3` results in the term `-3`.
-    fn from(value: i32) -> Self {
-        if value.is_negative() {
-            Term {
-                operation: -Operation::from(value.abs() as u32),
-            }
-        } else {
-            Term {
-                operation: Operation::from(value.abs() as u32),
-            }
-        }
-    }
-}
-
-impl From<i16> for Term {
-    /// Creates a Term consisting of only the number.
-    ///
-    /// Example: Entering `-3` results in the term `-3`.
-    fn from(value: i16) -> Self {
-        Term::from(i32::from(value))
-    }
-}
-
-impl From<i8> for Term {
-    /// Creates a Term consisting of only the number.
-    ///
-    /// Example: Entering `-3` results in the term `-3`.
-    fn from(value: i8) -> Self {
-        Term::from(i32::from(value))
-    }
-}
-
-impl Default for Term {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Default for Term<Num>
+{
     /// Returns the default Term: `0`
     fn default() -> Self {
         Term {
@@ -192,14 +187,34 @@ impl Default for Term {
     }
 }
 
-impl AddAssign for Term {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > AddAssign for Term<Num>
+{
     fn add_assign(&mut self, rhs: Self) {
         self.operation = std::mem::take(&mut self.operation) + rhs.operation;
     }
 }
 
-impl Add for Term {
-    type Output = Term;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Add for Term<Num>
+{
+    type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
         Term {
@@ -208,14 +223,34 @@ impl Add for Term {
     }
 }
 
-impl SubAssign for Term {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > SubAssign for Term<Num>
+{
     fn sub_assign(&mut self, rhs: Self) {
         self.operation = std::mem::take(&mut self.operation) - rhs.operation;
     }
 }
 
-impl Sub for Term {
-    type Output = Term;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Sub for Term<Num>
+{
+    type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Term {
@@ -224,14 +259,34 @@ impl Sub for Term {
     }
 }
 
-impl MulAssign for Term {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > MulAssign for Term<Num>
+{
     fn mul_assign(&mut self, rhs: Self) {
         self.operation = std::mem::take(&mut self.operation) * rhs.operation;
     }
 }
 
-impl Mul for Term {
-    type Output = Term;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Mul for Term<Num>
+{
+    type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Term {
@@ -240,14 +295,34 @@ impl Mul for Term {
     }
 }
 
-impl DivAssign for Term {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > DivAssign for Term<Num>
+{
     fn div_assign(&mut self, rhs: Self) {
         self.operation = std::mem::take(&mut self.operation) / rhs.operation;
     }
 }
 
-impl Div for Term {
-    type Output = Term;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Div for Term<Num>
+{
+    type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
         Term {
@@ -256,8 +331,18 @@ impl Div for Term {
     }
 }
 
-impl Neg for Term {
-    type Output = Term;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Neg for Term<Num>
+{
+    type Output = Self;
 
     fn neg(self) -> Self::Output {
         Term {
@@ -266,12 +351,41 @@ impl Neg for Term {
     }
 }
 
-trait Calc {
-    fn calc(&self) -> f64;
+trait Calc<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+>
+{
+    fn calc<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+    ) -> Output;
 }
 
-trait SetVars {
-    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation;
+trait SetVars<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+>
+{
+    fn set_vars(&self, vars: &[(&str, &Operation<Num>)]) -> Operation<Num>;
 }
 
 trait CanAddNumWell {
@@ -279,16 +393,35 @@ trait CanAddNumWell {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
-enum Operation {
-    Addition(Addition),
-    Multiplication(Multiplication),
-    Division(Division),
-    Negation(Negation),
-    Number(Number),
-    Variable(Variable),
+enum Operation<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+> {
+    Addition(Addition<Num>),
+    Multiplication(Multiplication<Num>),
+    Division(Division<Num>),
+    Negation(Negation<Num>),
+    Number(Number<Num>),
+    Variable(Variable<Num>),
 }
 
-impl CanAddNumWell for Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > CanAddNumWell for Operation<Num>
+{
     fn can_add_number_well(&self) -> bool {
         match self {
             Operation::Addition(add) => add.can_add_number_well(),
@@ -301,8 +434,18 @@ impl CanAddNumWell for Operation {
     }
 }
 
-impl SetVars for Operation {
-    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > SetVars<Num> for Operation<Num>
+{
+    fn set_vars(&self, vars: &[(&str, &Operation<Num>)]) -> Operation<Num> {
         match self {
             Operation::Addition(add) => add.set_vars(vars),
             Operation::Multiplication(mul) => mul.set_vars(vars),
@@ -314,32 +457,81 @@ impl SetVars for Operation {
     }
 }
 
-impl Calc for Operation {
-    fn calc(&self) -> f64 {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Calc<Num> for Operation<Num>
+{
+    fn calc<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+    ) -> Output {
         match self {
             Operation::Addition(add) => add.calc(),
             Operation::Multiplication(mul) => mul.calc(),
             Operation::Division(div) => div.calc(),
             Operation::Negation(inv) => inv.calc(),
-            Operation::Number(num) => num.calc(),
+            Operation::Number(num) => Output::from(num.value.clone()),
             Operation::Variable(_) => panic!("Cannot calculate result of a term with variables."),
         }
     }
 }
 
-impl Default for Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Default for Operation<Num>
+{
     fn default() -> Self {
         Operation::Number(Number::default())
     }
 }
 
-impl From<u32> for Operation {
-    fn from(value: u32) -> Self {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > From<Num> for Operation<Num>
+{
+    fn from(value: Num) -> Self {
         Operation::Number(Number { value })
     }
 }
 
-impl Add for Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Add for Operation<Num>
+{
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -351,8 +543,8 @@ impl Add for Operation {
             (Operation::Number(first), Operation::Number(second)) => first + second,
             (Operation::Variable(first), Operation::Variable(second)) => first + second,
 
-            (Operation::Number(num), any) if (num.value == 0) => any,
-            (any, Operation::Number(num)) if (num.value == 0) => any,
+            (Operation::Number(num), any) if (num.value == Num::default()) => any,
+            (any, Operation::Number(num)) if (num.value == Num::default()) => any,
 
             (Operation::Number(num), Operation::Addition(mut add)) => {
                 add.add_num(num);
@@ -391,7 +583,17 @@ impl Add for Operation {
     }
 }
 
-impl Div for Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Div for Operation<Num>
+{
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -405,17 +607,18 @@ impl Div for Operation {
             (Operation::Number(divident), Operation::Number(divisor)) => divident / divisor,
             (Operation::Variable(divident), Operation::Variable(divisor)) => divident / divisor,
 
-            (_, Operation::Number(num)) if (num.value == 0) => panic!("Cannot divide by zero."),
-            (any, Operation::Number(num)) if (num.value == 1) => any,
-            (Operation::Number(num), _) if (num.value == 0) => Operation::Number(num),
+            (_, Operation::Number(num)) if (num.value == Num::default()) => {
+                panic!("Cannot divide by zero.")
+            }
+            (Operation::Number(num), _) if (num.value == Num::default()) => Operation::Number(num),
 
+            // TODO: make generic
+            // (any, Operation::Number(num)) if (num.value == 1) => any,
             (Operation::Negation(neg), any) => -((*neg.value) / any),
             (any, Operation::Negation(neg)) => -(any / (*neg.value)),
 
             (any, Operation::Division(div)) => any * ((*div.divisor) / (*div.divident)),
-            (Operation::Division(div), any) => {
-                Operation::from(1) / (any * ((*div.divisor) / (*div.divident)))
-            }
+            (Operation::Division(div), any) => (*div.divident) / ((*div.divisor) * any),
 
             // NOTE: match with default
             (divident, divisor) => Operation::Division(Division {
@@ -426,7 +629,17 @@ impl Div for Operation {
     }
 }
 
-impl Mul for Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Mul for Operation<Num>
+{
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -438,11 +651,12 @@ impl Mul for Operation {
             (Operation::Number(first), Operation::Number(second)) => first * second,
             (Operation::Variable(first), Operation::Variable(second)) => first * second,
 
-            (Operation::Number(num), _) if (num.value == 0) => Operation::Number(num),
-            (_, Operation::Number(num)) if (num.value == 0) => Operation::Number(num),
-            (Operation::Number(num), any) if (num.value == 1) => any,
-            (any, Operation::Number(num)) if (num.value == 1) => any,
+            (Operation::Number(num), _) if (num.value == Num::default()) => Operation::Number(num),
+            (_, Operation::Number(num)) if (num.value == Num::default()) => Operation::Number(num),
 
+            // TODO: make generic
+            // (Operation::Number(num), any) if (num.value == 1) => any,
+            // (any, Operation::Number(num)) if (num.value == 1) => any,
             (any, Operation::Negation(neg)) => -(any * (*neg.value)),
             (Operation::Negation(neg), any) => -((*neg.value) * any),
 
@@ -466,7 +680,17 @@ impl Mul for Operation {
     }
 }
 
-impl Sub for Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Sub for Operation<Num>
+{
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -478,8 +702,8 @@ impl Sub for Operation {
             (Operation::Number(first), Operation::Number(second)) => first - second,
             (Operation::Variable(first), Operation::Variable(second)) => first - second,
 
-            (Operation::Number(num), any) if (num.value == 0) => -any,
-            (any, Operation::Number(num)) if (num.value == 0) => any,
+            (Operation::Number(num), any) if (num.value == Num::default()) => -any,
+            (any, Operation::Number(num)) if (num.value == Num::default()) => any,
 
             (Operation::Negation(neg), any) => -((*neg.value) + any),
             (any, Operation::Negation(neg)) => any + (*neg.value),
@@ -497,8 +721,18 @@ impl Sub for Operation {
     }
 }
 
-impl Neg for Operation {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Neg for Operation<Num>
+{
+    type Output = Self;
 
     fn neg(self) -> Self::Output {
         match self {
@@ -513,30 +747,88 @@ impl Neg for Operation {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
-struct Negation {
-    pub value: Box<Operation>,
+struct Negation<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+> {
+    pub value: Box<Operation<Num>>,
 }
 
-impl CanAddNumWell for Negation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > CanAddNumWell for Negation<Num>
+{
     fn can_add_number_well(&self) -> bool {
         self.value.can_add_number_well()
     }
 }
 
-impl SetVars for Negation {
-    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > SetVars<Num> for Negation<Num>
+{
+    fn set_vars(&self, vars: &[(&str, &Operation<Num>)]) -> Operation<Num> {
         -self.value.set_vars(vars)
     }
 }
 
-impl Calc for Negation {
-    fn calc(&self) -> f64 {
-        -self.value.calc()
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Calc<Num> for Negation<Num>
+{
+    fn calc<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+    ) -> Output {
+        -self.value.calc::<Output>()
     }
 }
 
-impl Add for Negation {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Add for Negation<Num>
+{
+    type Output = Operation<Num>;
 
     fn add(self, rhs: Self) -> Self::Output {
         Operation::Negation(Negation {
@@ -545,32 +837,72 @@ impl Add for Negation {
     }
 }
 
-impl Div for Negation {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Div for Negation<Num>
+{
+    type Output = Operation<Num>;
 
     fn div(self, rhs: Self) -> Self::Output {
         (*self.value) / (*rhs.value)
     }
 }
 
-impl Mul for Negation {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Mul for Negation<Num>
+{
+    type Output = Operation<Num>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         (*self.value) * (*rhs.value)
     }
 }
 
-impl Sub for Negation {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Sub for Negation<Num>
+{
+    type Output = Operation<Num>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         (*rhs.value) - (*self.value)
     }
 }
 
-impl Neg for Negation {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Neg for Negation<Num>
+{
+    type Output = Operation<Num>;
 
     fn neg(self) -> Self::Output {
         *self.value
@@ -578,12 +910,31 @@ impl Neg for Negation {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
-struct Addition {
-    pub summands: Vec<Operation>,
+struct Addition<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+> {
+    pub summands: Vec<Operation<Num>>,
 }
 
-impl Addition {
-    fn add_num(&mut self, num: Number) {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Addition<Num>
+{
+    fn add_num(&mut self, num: Number<Num>) {
         for i in 0..self.summands.len() {
             if self.summands[i].can_add_number_well() {
                 let added_summand = self.summands.remove(i) + Operation::Number(num);
@@ -595,7 +946,17 @@ impl Addition {
     }
 }
 
-impl CanAddNumWell for Addition {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > CanAddNumWell for Addition<Num>
+{
     fn can_add_number_well(&self) -> bool {
         for summand in &self.summands {
             if summand.can_add_number_well() {
@@ -606,22 +967,67 @@ impl CanAddNumWell for Addition {
     }
 }
 
-impl SetVars for Addition {
-    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > SetVars<Num> for Addition<Num>
+{
+    fn set_vars(&self, vars: &[(&str, &Operation<Num>)]) -> Operation<Num> {
         self.summands
             .iter()
-            .fold(Operation::from(0u32), |acc, op| acc + op.set_vars(vars))
+            .fold(Operation::from(Num::default()), |acc, op| {
+                acc + op.set_vars(vars)
+            })
     }
 }
 
-impl Calc for Addition {
-    fn calc(&self) -> f64 {
-        self.summands.iter().map(|summand| summand.calc()).sum()
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Calc<Num> for Addition<Num>
+{
+    fn calc<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+    ) -> Output {
+        let mut result = self.summands[0].calc();
+        for i in 1..self.summands.len() {
+            result = result + self.summands[i].calc();
+        }
+        result
     }
 }
 
-impl Add for Addition {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Add for Addition<Num>
+{
+    type Output = Operation<Num>;
 
     fn add(mut self, mut rhs: Self) -> Self::Output {
         // TODO: optimize
@@ -632,8 +1038,18 @@ impl Add for Addition {
     }
 }
 
-impl Mul for Addition {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Mul for Addition<Num>
+{
+    type Output = Operation<Num>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Operation::Multiplication(Multiplication {
@@ -642,8 +1058,18 @@ impl Mul for Addition {
     }
 }
 
-impl Div for Addition {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Div for Addition<Num>
+{
+    type Output = Operation<Num>;
 
     fn div(self, rhs: Self) -> Self::Output {
         Operation::Division(Division {
@@ -653,8 +1079,18 @@ impl Div for Addition {
     }
 }
 
-impl Sub for Addition {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Sub for Addition<Num>
+{
+    type Output = Operation<Num>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         // TODO: optimize
@@ -668,8 +1104,18 @@ impl Sub for Addition {
     }
 }
 
-impl Neg for Addition {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Neg for Addition<Num>
+{
+    type Output = Operation<Num>;
 
     fn neg(self) -> Self::Output {
         Operation::Negation(Negation {
@@ -679,12 +1125,31 @@ impl Neg for Addition {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
-struct Division {
-    pub divident: Box<Operation>,
-    pub divisor: Box<Operation>,
+struct Division<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+> {
+    pub divident: Box<Operation<Num>>,
+    pub divisor: Box<Operation<Num>>,
 }
 
-impl CanAddNumWell for Division {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > CanAddNumWell for Division<Num>
+{
     fn can_add_number_well(&self) -> bool {
         match *self.divisor {
             Operation::Number(_) => self.divident.can_add_number_well(),
@@ -693,20 +1158,59 @@ impl CanAddNumWell for Division {
     }
 }
 
-impl SetVars for Division {
-    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > SetVars<Num> for Division<Num>
+{
+    fn set_vars(&self, vars: &[(&str, &Operation<Num>)]) -> Operation<Num> {
         self.divident.set_vars(vars) / self.divisor.set_vars(vars)
     }
 }
 
-impl Calc for Division {
-    fn calc(&self) -> f64 {
-        self.divident.calc() / self.divisor.calc()
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Calc<Num> for Division<Num>
+{
+    fn calc<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+    ) -> Output {
+        self.divident.calc::<Output>() / self.divisor.calc::<Output>()
     }
 }
 
-impl Add for Division {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Add for Division<Num>
+{
+    type Output = Operation<Num>;
 
     fn add(self, rhs: Self) -> Self::Output {
         if self.divisor == rhs.divisor {
@@ -723,24 +1227,54 @@ impl Add for Division {
     }
 }
 
-impl Mul for Division {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Mul for Division<Num>
+{
+    type Output = Operation<Num>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         ((*self.divident) * (*rhs.divident)) / ((*self.divisor) * (*rhs.divisor))
     }
 }
 
-impl Div for Division {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Div for Division<Num>
+{
+    type Output = Operation<Num>;
 
     fn div(self, rhs: Self) -> Self::Output {
         Operation::Division(self) * ((*rhs.divisor) / (*rhs.divident))
     }
 }
 
-impl Sub for Division {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Sub for Division<Num>
+{
+    type Output = Operation<Num>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         let s_divident = *self.divident;
@@ -757,8 +1291,18 @@ impl Sub for Division {
     }
 }
 
-impl Neg for Division {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Neg for Division<Num>
+{
+    type Output = Operation<Num>;
 
     fn neg(self) -> Self::Output {
         Operation::Negation(Negation {
@@ -768,35 +1312,96 @@ impl Neg for Division {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Default, Clone)]
-struct Multiplication {
-    multipliers: Vec<Operation>,
+struct Multiplication<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+> {
+    multipliers: Vec<Operation<Num>>,
 }
 
-impl CanAddNumWell for Multiplication {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > CanAddNumWell for Multiplication<Num>
+{
     fn can_add_number_well(&self) -> bool {
         false
     }
 }
 
-impl SetVars for Multiplication {
-    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
-        self.multipliers
-            .iter()
-            .fold(Operation::from(1u32), |acc, op| acc * op.set_vars(vars))
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > SetVars<Num> for Multiplication<Num>
+{
+    fn set_vars(&self, vars: &[(&str, &Operation<Num>)]) -> Operation<Num> {
+        let mut result = self.multipliers[0].set_vars(vars);
+        for i in 1..self.multipliers.len() {
+            result = result * self.multipliers[i].set_vars(vars);
+        }
+        result
     }
 }
 
-impl Calc for Multiplication {
-    fn calc(&self) -> f64 {
-        self.multipliers
-            .iter()
-            .map(|multiplier| multiplier.calc())
-            .product()
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Calc<Num> for Multiplication<Num>
+{
+    fn calc<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+    ) -> Output {
+        let mut result = self.multipliers[0].calc();
+        for i in 1..self.multipliers.len() {
+            result = result * self.multipliers[i].calc();
+        }
+        result
     }
 }
 
-impl Add for Multiplication {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Add for Multiplication<Num>
+{
+    type Output = Operation<Num>;
 
     fn add(mut self, mut rhs: Self) -> Self::Output {
         let mut on_both_sides = Vec::new();
@@ -836,8 +1441,18 @@ impl Add for Multiplication {
     }
 }
 
-impl Mul for Multiplication {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Mul for Multiplication<Num>
+{
+    type Output = Operation<Num>;
 
     fn mul(mut self, mut rhs: Self) -> Self::Output {
         // TODO: optimize
@@ -848,8 +1463,18 @@ impl Mul for Multiplication {
     }
 }
 
-impl Div for Multiplication {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Div for Multiplication<Num>
+{
+    type Output = Operation<Num>;
 
     fn div(mut self, mut rhs: Self) -> Self::Output {
         for i in (0..self.multipliers.len()).rev() {
@@ -867,8 +1492,18 @@ impl Div for Multiplication {
     }
 }
 
-impl Sub for Multiplication {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Sub for Multiplication<Num>
+{
+    type Output = Operation<Num>;
 
     fn sub(mut self, mut rhs: Self) -> Self::Output {
         let mut on_both_sides = Vec::new();
@@ -905,8 +1540,18 @@ impl Sub for Multiplication {
     }
 }
 
-impl Neg for Multiplication {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Neg for Multiplication<Num>
+{
+    type Output = Operation<Num>;
 
     fn neg(self) -> Self::Output {
         Operation::Negation(Negation {
@@ -916,75 +1561,142 @@ impl Neg for Multiplication {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone, Copy)]
-struct Number {
-    value: u32,
+struct Number<
+    Num: Sized
+        + Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+> {
+    value: Num,
 }
 
-impl CanAddNumWell for Number {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > CanAddNumWell for Number<Num>
+{
     fn can_add_number_well(&self) -> bool {
         true
     }
 }
 
-impl SetVars for Number {
-    fn set_vars(&self, _vars: &[(&str, &Operation)]) -> Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > SetVars<Num> for Number<Num>
+{
+    fn set_vars(&self, _vars: &[(&str, &Operation<Num>)]) -> Operation<Num> {
         Operation::Number(self.clone())
     }
 }
 
-impl From<u32> for Number {
-    fn from(value: u32) -> Self {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > From<Num> for Number<Num>
+{
+    fn from(value: Num) -> Self {
         Number { value }
     }
 }
 
-impl Calc for Number {
-    fn calc(&self) -> f64 {
-        f64::from(self.value)
-    }
-}
-
-impl Add for Number {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Add for Number<Num>
+{
+    type Output = Operation<Num>;
 
     fn add(self, rhs: Self) -> Self::Output {
         Operation::Number(Number::from(self.value + rhs.value))
     }
 }
 
-impl Mul for Number {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Mul for Number<Num>
+{
+    type Output = Operation<Num>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Operation::Number(Number::from(self.value * rhs.value))
     }
 }
 
-impl Div for Number {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Div for Number<Num>
+{
+    type Output = Operation<Num>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        if self.value % rhs.value == 0 {
+        if self.value.clone() % rhs.value.clone() == Num::default() {
             Operation::Number(Number::from(self.value / rhs.value))
         } else {
-            let gcd = greatest_common_divisor(self.value, rhs.value);
-            if gcd == 1 {
-                Operation::Division(Division {
-                    divident: Box::new(Operation::Number(self)),
-                    divisor: Box::new(Operation::Number(rhs)),
-                })
-            } else {
-                Operation::Division(Division {
-                    divident: Box::new(Operation::from(self.value / gcd)),
-                    divisor: Box::new(Operation::from(rhs.value / gcd)),
-                })
-            }
+            let gcd = greatest_common_divisor(self.value.clone(), rhs.value.clone());
+            Operation::Division(Division {
+                divident: Box::new(Operation::from(self.value / gcd.clone())),
+                divisor: Box::new(Operation::from(rhs.value / gcd)),
+            })
         }
     }
 }
 
-impl Sub for Number {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Sub for Number<Num>
+{
+    type Output = Operation<Num>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         if self.value < rhs.value {
@@ -995,11 +1707,21 @@ impl Sub for Number {
     }
 }
 
-impl Neg for Number {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Neg for Number<Num>
+{
+    type Output = Operation<Num>;
 
     fn neg(self) -> Self::Output {
-        if self.value == 0 {
+        if self.value == Num::default() {
             Operation::Number(self)
         } else {
             Operation::Negation(Negation {
@@ -1009,31 +1731,75 @@ impl Neg for Number {
     }
 }
 
-fn greatest_common_divisor(a: u32, b: u32) -> u32 {
+fn greatest_common_divisor<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+>(
+    a: Num,
+    b: Num,
+) -> Num {
     // euclidean algorithm
 
     let (mut smaller, mut bigger) = if a < b { (a, b) } else { (b, a) };
 
-    while smaller != 0 {
-        (smaller, bigger) = (bigger % smaller, smaller);
+    while smaller != Num::default() {
+        let new_bigger = smaller.clone();
+        smaller = bigger % smaller;
+        bigger = new_bigger;
     }
 
     bigger
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Default, Clone)]
-struct Variable {
+struct Variable<
+    Num: Add<Output = Num>
+        + Sub<Output = Num>
+        + Mul<Output = Num>
+        + Div<Output = Num>
+        + Rem<Output = Num>
+        + Clone
+        + Default
+        + PartialOrd,
+> {
+    phantom: PhantomData<Num>,
     name: String,
 }
 
-impl CanAddNumWell for Variable {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > CanAddNumWell for Variable<Num>
+{
     fn can_add_number_well(&self) -> bool {
         false
     }
 }
 
-impl SetVars for Variable {
-    fn set_vars(&self, vars: &[(&str, &Operation)]) -> Operation {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > SetVars<Num> for Variable<Num>
+{
+    fn set_vars(&self, vars: &[(&str, &Operation<Num>)]) -> Operation<Num> {
         for var in vars {
             if self.name == var.0 {
                 return var.1.clone();
@@ -1043,55 +1809,105 @@ impl SetVars for Variable {
     }
 }
 
-impl From<String> for Variable {
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > From<String> for Variable<Num>
+{
     fn from(value: String) -> Self {
-        Variable { name: value }
-    }
-}
-
-impl Add for Variable {
-    type Output = Operation;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        if self.name == rhs.name {
-            Operation::Multiplication(Multiplication {
-                multipliers: vec![Operation::from(2u32), Operation::Variable(self)],
-            })
-        } else {
-            Operation::Addition(Addition {
-                summands: vec![Operation::Variable(self), Operation::Variable(rhs)],
-            })
+        Variable {
+            name: value,
+            phantom: PhantomData::default(),
         }
     }
 }
 
-impl Mul for Variable {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Add for Variable<Num>
+{
+    type Output = Operation<Num>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Operation::Addition(Addition {
+            summands: vec![Operation::Variable(self), Operation::Variable(rhs)],
+        })
+    }
+}
+
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Mul for Variable<Num>
+{
+    type Output = Operation<Num>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Operation::Multiplication(Multiplication {
-            multipliers: vec![Operation::Variable(self), Operation::Variable(rhs)],
+            multipliers: vec![
+                Operation::Variable::<Num>(self),
+                Operation::Variable::<Num>(rhs),
+            ],
         })
     }
 }
 
-impl Div for Variable {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Div for Variable<Num>
+{
+    type Output = Operation<Num>;
 
     fn div(self, rhs: Self) -> Self::Output {
         Operation::Division(Division {
-            divident: Box::new(Operation::Variable(self)),
-            divisor: Box::new(Operation::Variable(rhs)),
+            divident: Box::new(Operation::Variable::<Num>(self)),
+            divisor: Box::new(Operation::Variable::<Num>(rhs)),
         })
     }
 }
 
-impl Sub for Variable {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Sub for Variable<Num>
+{
+    type Output = Operation<Num>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         if self == rhs {
-            Operation::from(0u32)
+            Operation::default()
         } else {
             Operation::Addition(Addition {
                 summands: vec![Operation::Variable(self), -Operation::Variable(rhs)],
@@ -1100,12 +1916,22 @@ impl Sub for Variable {
     }
 }
 
-impl Neg for Variable {
-    type Output = Operation;
+impl<
+        Num: Add<Output = Num>
+            + Sub<Output = Num>
+            + Mul<Output = Num>
+            + Div<Output = Num>
+            + Rem<Output = Num>
+            + Clone
+            + Default
+            + PartialOrd,
+    > Neg for Variable<Num>
+{
+    type Output = Operation<Num>;
 
     fn neg(self) -> Self::Output {
         Operation::Negation(Negation {
-            value: Box::new(Operation::Variable(self)),
+            value: Box::new(Operation::Variable::<Num>(self)),
         })
     }
 }

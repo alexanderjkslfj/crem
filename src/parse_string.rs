@@ -9,7 +9,7 @@ pub enum TryFromStrError {
     UnexpectedEof,
 }
 
-pub fn parse_string(value: &str) -> Result<Term, TryFromStrError> {
+pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
     let mut outputs = Vec::new();
 
     enum Operation {
@@ -48,7 +48,7 @@ pub fn parse_string(value: &str) -> Result<Term, TryFromStrError> {
         ),
     }
 
-    let mut add_to_output = |operation: Operation, negated: bool, term: Term| {
+    let mut add_to_output = |operation: Operation, negated: bool, term: Term<u32>| {
         let t = if negated { -term } else { term };
         match operation {
             Operation::Add => {
