@@ -3,4 +3,5 @@ name = "crem"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[dev-dependencies]
+num-bigint = "0.4"

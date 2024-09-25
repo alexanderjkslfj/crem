@@ -33,6 +33,22 @@ pub struct Term<
     operation: Operation<Num>,
 }
 
+impl Term<u32> {
+    /// Optimizes and calculates the term.
+    pub fn process<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<u32>,
+    >(
+        term: &str,
+    ) -> Result<Output, TryFromStrError> {
+        Ok(Term::try_from(term)?.calc())
+    }
+}
+
 impl<
         Num: Add<Output = Num>
             + Sub<Output = Num>
@@ -78,22 +94,24 @@ impl<
     }
 
     /// Replaces all matching variables with the given term.
-    pub fn set_variable(&mut self, name: &str, term: &Term<Num>) {
+    pub fn set_var(&mut self, name: &str, term: &Term<Num>) -> &Self {
         self.operation = self.operation.set_vars(&[(name, &term.operation)]);
+        self
     }
 
     /// Replaces all matching variables with the given terms.
-    pub fn set_variables(&mut self, variables: &[(&str, &Term<Num>)]) {
+    pub fn set_vars(&mut self, variables: &[(&str, &Term<Num>)]) -> &Self {
         let vars_as_ops: Vec<(&str, &Operation<Num>)> = variables
             .iter()
             .map(|var| (var.0, &var.1.operation))
             .collect();
 
-        self.operation = self.operation.set_vars(&vars_as_ops)
+        self.operation = self.operation.set_vars(&vars_as_ops);
+        self
     }
 
     /// Creates a new variable.
-    pub fn new_variable(name: impl Into<String>) -> Self {
+    pub fn var(name: impl Into<String>) -> Self {
         Term {
             operation: Operation::Variable(Variable::from(name.into())),
         }

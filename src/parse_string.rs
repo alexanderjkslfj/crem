@@ -2,12 +2,12 @@ use std::mem::take;
 
 use crate::Term;
 
-/// Error when creating a term from a string
+/// Error when creating a term from an invalid string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TryFromStrError {
-    /// An illegal character was encountered
+    /// An illegal character was encountered.
     UnexpectedCharacter(char),
-    /// The EOF was reached while some operations or brackets were still open
+    /// The EOF was reached while some operations or brackets were still open.
     UnexpectedEof,
 }
 

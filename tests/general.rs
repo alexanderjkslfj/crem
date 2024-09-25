@@ -132,19 +132,19 @@ mod tests {
     #[test]
     fn test_set_variable() {
         {
-            let mut a = Term::new_variable("a");
-            a.set_variable("a", &Term::from(5));
+            let mut a = Term::var("a");
+            a.set_var("a", &Term::from(5));
             assert_eq!(a, Term::from(5)); // check if simple variable setting works
         }
         {
-            let mut a = Term::new_variable("a");
-            a.set_variable("b", &Term::from(5));
+            let mut a = Term::var("a");
+            a.set_var("b", &Term::from(5));
             assert_ne!(a, Term::from(5)); // check if setting wrong name fails
         }
         {
             let mut term = Term::from(5)
-                + (Term::from(3) * (Term::from(4) / (Term::from(7) - Term::new_variable("x"))));
-            term.set_variable("x", &Term::from(5));
+                + (Term::from(3) * (Term::from(4) / (Term::from(7) - Term::var("x"))));
+            term.set_var("x", &Term::from(5));
             assert_eq!(term.calc::<f64>(), 11.0); // check if deep variable setting works
             assert_eq!(term, Term::from(11)); // check if deep variable setting simplifies correctly
         }
@@ -169,5 +169,17 @@ mod tests {
     fn test_convert() {
         assert_eq!(Term::from(3i64), Term::from(3u32).convert());
         assert_ne!(Term::from(2i64), Term::from(3u32).convert());
+    }
+
+    #[test]
+    fn test_foreign_number_type() {
+        use num_bigint::BigInt;
+
+        let term =
+            Term::from(BigInt::from(1)) / Term::from(BigInt::from(7)) * Term::from(BigInt::from(7));
+
+        let result: BigInt = term.calc();
+
+        assert_eq!(result, BigInt::from(1));
     }
 }
