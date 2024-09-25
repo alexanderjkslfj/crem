@@ -94,9 +94,28 @@ impl<
     }
 
     /// Replaces all matching variables with the given term.
+    pub fn with_var(&self, name: &str, term: &Term<Num>) -> Self {
+        Term {
+            operation: self.operation.set_vars(&[(name, &term.operation)]),
+        }
+    }
+
+    /// Replaces all matching variables with the given term.
     pub fn set_var(&mut self, name: &str, term: &Term<Num>) -> &Self {
         self.operation = self.operation.set_vars(&[(name, &term.operation)]);
         self
+    }
+
+    /// Replaces all matching variables with the given terms.
+    pub fn with_vars(&self, variables: &[(&str, &Term<Num>)]) -> Self {
+        let vars_as_ops: Vec<(&str, &Operation<Num>)> = variables
+            .iter()
+            .map(|var| (var.0, &var.1.operation))
+            .collect();
+
+        Term {
+            operation: self.operation.set_vars(&vars_as_ops),
+        }
     }
 
     /// Replaces all matching variables with the given terms.
