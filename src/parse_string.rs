@@ -1,3 +1,5 @@
+use std::mem::take;
+
 use crate::Term;
 
 /// Error when creating a term from a string
@@ -80,27 +82,29 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
         AfterTerm,
     }
 
-    // The state machine multiplies and divides terms. It does not add them.
-    // The terms to be added later are stored here.
-    let mut to_be_added = Vec::new();
+    // The work-in-progress result. Contains all complete terms added so far.
+    let mut result = Term::from(0u32);
 
-    // Puts a term into `to_be_added`, applying its operation as appropriate.
-    // If its operation is `Add`, the term is simply pushed.
-    // If its operation is `Mul` or `Div`, the term multiplies/divides the last term in `to_be_added`.
-    // This ensures that multiplication and division are applied before addition.
-    let mut add_to_output = |operation: Operation, negated: bool, term: Term<u32>| {
+    // The current work-in-progress term.
+    // Whenever a * or / is encountered, its applied to this term.
+    // When a + is encountered, this term is added to the result and replaced with the new term.
+    let mut working_term = Box::new([Term::from(0u32)]);
+
+    // Processes a term, applying the operation as appropriate.
+    // Multiplications and divisions are applied to the current `working_term`.
+    // If the operation is an addition, the current `working_term` is added to the result and replaced by this new term.
+    let mut process_term = |operation: Operation, negated: bool, term: Term<u32>| {
         let t = if negated { -term } else { term };
         match operation {
             Operation::Add => {
-                to_be_added.push(t);
+                result += take(&mut working_term[0]);
+                working_term[0] = t;
             }
             Operation::Mul => {
-                let last_index = to_be_added.len() - 1;
-                to_be_added[last_index] *= t;
+                working_term[0] *= t;
             }
             Operation::Div => {
-                let last_index = to_be_added.len() - 1;
-                to_be_added[last_index] /= t;
+                working_term[0] /= t;
             }
         }
     };
@@ -139,7 +143,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                     }
                     ')' => {
                         if depth == 1 {
-                            add_to_output(op, neg, parse_string(&buffer)?);
+                            process_term(op, neg, parse_string(&buffer)?);
                             State::AfterTerm
                         } else {
                             buffer.push(')');
@@ -163,22 +167,22 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                     ),
                     '+' | '*' | '/' => {
                         let term = Term::from(buffer.parse::<u32>().unwrap());
-                        add_to_output(op, neg, term);
+                        process_term(op, neg, term);
                         State::Term(Operation::try_from(char).unwrap(), false, Value::None)
                     }
                     '-' => {
                         let term = Term::from(buffer.parse::<u32>().unwrap());
-                        add_to_output(op, neg, term);
+                        process_term(op, neg, term);
                         State::Term(Operation::Add, true, Value::None)
                     }
                     '(' => {
                         let term = Term::from(buffer.parse::<u32>().unwrap());
-                        add_to_output(op, neg, term);
+                        process_term(op, neg, term);
                         State::Term(Operation::Mul, false, Value::Brackets(1, String::new()))
                     }
                     any if any.is_whitespace() => {
                         let term = Term::from(buffer.parse::<u32>().unwrap());
-                        add_to_output(op, neg, term);
+                        process_term(op, neg, term);
                         State::AfterTerm
                     }
                     any => return Err(TryFromStrError::UnexpectedCharacter(any)),
@@ -194,7 +198,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                                 buffer.parse::<u32>().unwrap(),
                                 10u32.pow(buffer.len() as u32),
                             );
-                        add_to_output(op, neg, term);
+                        process_term(op, neg, term);
                         State::Term(Operation::try_from(char).unwrap(), false, Value::None)
                     }
                     '-' => {
@@ -203,7 +207,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                                 buffer.parse::<u32>().unwrap(),
                                 10u32.pow(buffer.len() as u32),
                             );
-                        add_to_output(op, neg, term);
+                        process_term(op, neg, term);
                         State::Term(Operation::Add, true, Value::None)
                     }
                     '(' => {
@@ -212,7 +216,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                                 buffer.parse::<u32>().unwrap(),
                                 10u32.pow(buffer.len() as u32),
                             );
-                        add_to_output(op, neg, term);
+                        process_term(op, neg, term);
                         State::Term(Operation::Mul, false, Value::Brackets(1, String::new()))
                     }
                     any if any.is_whitespace() => {
@@ -221,7 +225,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                                 buffer.parse::<u32>().unwrap(),
                                 10u32.pow(buffer.len() as u32),
                             );
-                        add_to_output(op, neg, term);
+                        process_term(op, neg, term);
                         State::AfterTerm
                     }
                     any => return Err(TryFromStrError::UnexpectedCharacter(any)),
@@ -236,7 +240,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
             Value::None | Value::Brackets(_, _) => return Err(TryFromStrError::UnexpectedEof),
             Value::PreComma(buffer) => {
                 let term = Term::from(buffer.parse::<u32>().unwrap());
-                add_to_output(op, neg, term);
+                process_term(op, neg, term);
             }
             Value::PostComma(pre, buffer) => {
                 let term = Term::from(pre)
@@ -244,15 +248,13 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                         buffer.parse::<u32>().unwrap(),
                         10u32.pow(buffer.len() as u32),
                     );
-                add_to_output(op, neg, term);
+                process_term(op, neg, term);
             }
         },
         State::AfterTerm => (),
     }
 
-    let result = to_be_added
-        .into_iter()
-        .fold(Term::from(0u32), |acc, term| acc + term);
+    result += take(&mut working_term[0]);
 
     Ok(result)
 }
