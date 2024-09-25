@@ -9,9 +9,18 @@ pub enum TryFromStrError {
     UnexpectedEof,
 }
 
+/// Parses a formular. Used in `impl TryFrom<&str> for Term`.
+///
+/// Uses a state machine internally.
+///
+/// Expected behavior:
+/// ```rust
+/// # use crem::*;
+/// assert_eq!(Term::try_from("2 + 3")?, Term::from(2) + Term::from(3));
+/// assert_eq!(Term::try_from("2 + 3")?, Term::from(5));
+/// # Ok::<(), TryFromStrError>(())
+/// ```
 pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
-    let mut outputs = Vec::new();
-
     enum Operation {
         Add,
         Mul,
@@ -31,57 +40,79 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
         }
     }
 
+    /// The current state of a value (an operation will be applied to).
+    /// A value is either a term contained within brackets or a number.
     enum Value {
+        /// The value has not started being read yet.
         None,
-        PreComma(String),
-        PostComma(u32, String),
-        Brackets(usize, String),
+        /// A number has started being read.
+        /// The digits read so far are stored in the buffer.
+        /// A comma has not been encountered.
+        PreComma(String /* buffer */),
+        /// A number has started being read, after a comma was encountered.
+        /// The post-comma digits read so far are stored in the buffer.
+        /// The number before the comma is also stored.
+        PostComma(u32 /* pre-comma number */, String /* buffer */),
+        /// The value is a term within brackets.
+        /// Anything within the outer-most brackets is stored in the buffer.
+        /// The depth counts the bracket depth. It starts at 1.
+        /// The depth is increased for every encountered `(` and decreased for every encountered `)`.
+        /// The depth cannot be zero (since that would mean that the outer-most pair of brackets has already been closed).
+        Brackets(usize /* depth */, String /* buffer */),
     }
 
+    /// The current state of the state machine.
+    /// Each individual operation is handled within one state.
+    /// Brackets are considered a single state and are handled using recursion.
+    /// The state machine starts with adding something, so the initial state is `State::Term(Operation::Add, false, Value::None)`.
     enum State {
-        Start,
-        PostTerm,
+        /// An operation has been read. Possibly a value has started being read.
         Term(
-            Operation, /*operation*/
-            bool,      /*negated?*/
-            Value,     /*value state*/
+            /// The operation of this term.
+            Operation,
+            /// Whether this term is to be negated.
+            bool,
+            /// The value of the term, which the operation is applied to.
+            /// May be at any state: A complete value, down to a value which hasn't even begun being read.
+            Value,
         ),
+        /// The previous term was fully processed. Awaiting operation (or brackets, which implicitly multiply).
+        AfterTerm,
     }
 
+    // The state machine multiplies and divides terms. It does not add them.
+    // The terms to be added later are stored here.
+    let mut to_be_added = Vec::new();
+
+    // Puts a term into `to_be_added`, applying its operation as appropriate.
+    // If its operation is `Add`, the term is simply pushed.
+    // If its operation is `Mul` or `Div`, the term multiplies/divides the last term in `to_be_added`.
+    // This ensures that multiplication and division are applied before addition.
     let mut add_to_output = |operation: Operation, negated: bool, term: Term<u32>| {
         let t = if negated { -term } else { term };
         match operation {
             Operation::Add => {
-                outputs.push(t);
+                to_be_added.push(t);
             }
             Operation::Mul => {
-                let last_index = outputs.len() - 1;
-                outputs[last_index] *= t;
+                let last_index = to_be_added.len() - 1;
+                to_be_added[last_index] *= t;
             }
             Operation::Div => {
-                let last_index = outputs.len() - 1;
-                outputs[last_index] /= t;
+                let last_index = to_be_added.len() - 1;
+                to_be_added[last_index] /= t;
             }
         }
     };
 
-    let mut state = State::Start;
+    // The current state of the state machine.
+    // Starts with adding something.
+    let mut state = State::Term(Operation::Add, false, Value::None);
+
+    // The state machine
     for char in value.chars() {
         state = match state {
-            State::Start => match char {
-                '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                    State::Term(Operation::Add, false, Value::PreComma(char.into()))
-                }
-                '.' => State::Term(Operation::Add, false, Value::PostComma(0, String::new())),
-                '+' | '*' | '/' => {
-                    State::Term(Operation::try_from(char).unwrap(), false, Value::None)
-                }
-                '-' => State::Term(Operation::Add, true, Value::None),
-                '(' => State::Term(Operation::Add, false, Value::Brackets(1, String::new())),
-                any if any.is_whitespace() => state,
-                any => return Err(TryFromStrError::UnexpectedCharacter(any)),
-            },
-            State::PostTerm => match char {
+            State::AfterTerm => match char {
                 '+' | '*' | '/' => {
                     State::Term(Operation::try_from(char).unwrap(), false, Value::None)
                 }
@@ -109,7 +140,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                     ')' => {
                         if depth == 1 {
                             add_to_output(op, neg, parse_string(&buffer)?);
-                            State::PostTerm
+                            State::AfterTerm
                         } else {
                             buffer.push(')');
                             State::Term(op, neg, Value::Brackets(depth - 1, buffer))
@@ -148,7 +179,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                     any if any.is_whitespace() => {
                         let term = Term::from(buffer.parse::<u32>().unwrap());
                         add_to_output(op, neg, term);
-                        State::PostTerm
+                        State::AfterTerm
                     }
                     any => return Err(TryFromStrError::UnexpectedCharacter(any)),
                 },
@@ -191,7 +222,7 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                                 10u32.pow(buffer.len() as u32),
                             );
                         add_to_output(op, neg, term);
-                        State::PostTerm
+                        State::AfterTerm
                     }
                     any => return Err(TryFromStrError::UnexpectedCharacter(any)),
                 },
@@ -199,9 +230,8 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
         }
     }
 
-    // cleanup leftover state
+    // Processes the final state the machine was left in.
     match state {
-        State::Start => return Err(TryFromStrError::UnexpectedEof),
         State::Term(op, neg, val) => match val {
             Value::None | Value::Brackets(_, _) => return Err(TryFromStrError::UnexpectedEof),
             Value::PreComma(buffer) => {
@@ -217,10 +247,12 @@ pub fn parse_string(value: &str) -> Result<Term<u32>, TryFromStrError> {
                 add_to_output(op, neg, term);
             }
         },
-        State::PostTerm => (),
+        State::AfterTerm => (),
     }
 
-    Ok(outputs
+    let result = to_be_added
         .into_iter()
-        .fold(Term::from(0u32), |acc, term| acc + term))
+        .fold(Term::from(0u32), |acc, term| acc + term);
+
+    Ok(result)
 }
