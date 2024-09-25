@@ -93,6 +93,22 @@ impl<
         self.operation.calc()
     }
 
+    /// Replaces all matching variables with the given term, and calculates the result.
+    pub fn use_var<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+        name: &str,
+        term: &Term<Num>,
+    ) -> Output {
+        self.operation.set_vars(&[(name, &term.operation)]).calc()
+    }
+
     /// Replaces all matching variables with the given term.
     pub fn with_var(&self, name: &str, term: &Term<Num>) -> Self {
         Term {
@@ -104,6 +120,26 @@ impl<
     pub fn set_var(&mut self, name: &str, term: &Term<Num>) -> &Self {
         self.operation = self.operation.set_vars(&[(name, &term.operation)]);
         self
+    }
+
+    /// Replaces all matching variables with the given terms, and calculates the result.
+    pub fn use_vars<
+        Output: Add<Output = Output>
+            + Sub<Output = Output>
+            + Mul<Output = Output>
+            + Div<Output = Output>
+            + Neg<Output = Output>
+            + From<Num>,
+    >(
+        &self,
+        variables: &[(&str, &Term<Num>)],
+    ) -> Output {
+        let vars_as_ops: Vec<(&str, &Operation<Num>)> = variables
+            .iter()
+            .map(|var| (var.0, &var.1.operation))
+            .collect();
+
+        self.operation.set_vars(&vars_as_ops).calc()
     }
 
     /// Replaces all matching variables with the given terms.

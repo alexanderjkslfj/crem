@@ -38,7 +38,7 @@
 //! # use crem::Term;
 //! let feet = Term::from(3.28084) * Term::var("meters");
 //!
-//! let two_meters_in_feet: f64 = feet.with_var("meters", &Term::from(2.0)).calc();
+//! let two_meters_in_feet: f64 = feet.use_var("meters", &Term::from(2.0));
 //!
 //! assert_eq!(two_meters_in_feet, 6.56168);
 //! ```
